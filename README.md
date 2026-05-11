@@ -1,39 +1,20 @@
-# FastApi Marketplace
+# Klikava Backend
 
-## Требования
+## Install and launch
 
-- Python 3.8 или выше
-- Виртуальное окружение (уже настроено в папке проекта)
-
-## Установка и запуск
-
-1. Активируйте виртуальное окружение:
+1. Activate virtual environment:
    ```
-   source Scripts/activate  # На Windows: Scripts\activate.bat
+   Scripts\activate.bat
    ```
 
-2. Установите зависимости:
+2. Install the dependencies:
    ```
    pip install -r requirements.txt
    ```
 
-3. Запустите сервер FastAPI:
+3. Create ".env" file and write all required variables from ".env.example":
+
+4. Launch server FastAPI:
    ```
    python -m uvicorn app.main:app --reload
    ```
-
-Сервер будет доступен по адресу: http://127.0.0.1:8000
-
-## Режим дебага
-
-Для отключения проверки доступа (access_manager) и предоставления доступа ко всем путям установите переменную окружения `DEBUG_MODE=true` в файле `.env`.
-
-По умолчанию `DEBUG_MODE=false` для безопасности.
-
-Пример:
-```
-DEBUG_MODE=true
-```
-
-В режиме дебага все запросы проходят без проверки токена.
-

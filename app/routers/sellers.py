@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Seller, User
 from app.schemas import SellerCreate, SellerResponse
-from app.services.auth_service import get_current_user
+from app.services.access_manager import AccessManager
 from app.crud import create_seller
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
@@ -12,12 +12,10 @@ router = APIRouter(prefix="/sellers", tags=["sellers"])
 @router.post("", response_model=SellerResponse, status_code=status.HTTP_201_CREATED)
 def create_seller_endpoint(
   seller_data: SellerCreate,
-  authorization: str = None,
+  current_user: User = Depends(AccessManager.get_current_user),
   db: Session = Depends(get_db)
 ):
   """Create a seller profile (requires SELLER role)."""
-
-  current_user = get_current_user(authorization, db)
 
   # Check if user has SELLER role
   if not current_user.is_seller():
@@ -60,12 +58,10 @@ def list_sellers(
 def update_seller(
   seller_id: int,
   seller_data: SellerCreate,
-  authorization: str = None,
+  current_user: User = Depends(AccessManager.get_current_user),
   db: Session = Depends(get_db)
 ):
   """Update seller profile (owner only)."""
-
-  current_user = get_current_user(authorization, db)
 
   seller = db.query(Seller).filter(Seller.id == seller_id).first()
   if not seller:

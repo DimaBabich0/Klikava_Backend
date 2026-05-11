@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User, Role
-from app.schemas import RoleResponse, AssignRoleRequest, RoleCreate
-from app.services.auth_service import get_current_user, require_role
+from app.schemas import RoleResponse, AssignRoleRequest, RoleCreate, UserResponse
+from app.services.access_manager import AccessManager
 from app.crud import get_roles, create_role, assign_role_to_user
 
 router = APIRouter(prefix="/roles", tags=["roles"])
@@ -23,7 +23,7 @@ def list_roles(db: Session = Depends(get_db)):
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 def create_role_endpoint(
   role_data: RoleCreate,
-  current_user: User = Depends(require_role("ADMIN")),
+  current_user: User = Depends(AccessManager.require_role("ADMIN")),
   db: Session = Depends(get_db)
 ):
   """Create a new role (Admin only)."""
@@ -38,15 +38,15 @@ def create_role_endpoint(
 def assign_role_to_user_endpoint(
   user_id: int,
   role_request: AssignRoleRequest,
-  current_user: User = Depends(require_role("ADMIN")),
+  current_user: User = Depends(AccessManager.require_role("ADMIN")),
   db: Session = Depends(get_db)
 ):
-  """Assign a role to a user (Admin only)."""
+  """Assign a role to a user (Admin only)"""
   try:
     user = assign_role_to_user(db, user_id, role_request.role_name)
     return {
       "message": f"Role {role_request.role_name} assigned to user {user_id}",
-      "user": user
+      "user": UserResponse.from_orm(user)
     }
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
@@ -56,7 +56,7 @@ def assign_role_to_user_endpoint(
 def remove_role_from_user(
   user_id: int,
   role_id: int,
-  current_user: User = Depends(require_role("ADMIN")),
+  current_user: User = Depends(AccessManager.require_role("ADMIN")),
   db: Session = Depends(get_db)
 ):
   """Remove a role from a user (Admin only)."""

@@ -1,21 +1,21 @@
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Header
 from sqlalchemy.orm import Session
 from app.models import User
 from app.auth import decode_token
 from app.database import get_db
 
 
-def get_current_user(token: str, db: Session = Depends(get_db)) -> User:
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
   """
-  Extract and validate user from JWT token.
+  Extract and validate user from JWT token from the Authorization header.
   """
-  if not token or not token.startswith("Bearer "):
+  if not authorization or not authorization.startswith("Bearer "):
     raise HTTPException(
       status_code=status.HTTP_401_UNAUTHORIZED,
       detail="Invalid or missing token"
     )
 
-  token = token.replace("Bearer ", "")
+  token = authorization.replace("Bearer ", "")
   payload = decode_token(token)
 
   if not payload or "sub" not in payload:
@@ -36,7 +36,7 @@ def get_current_user(token: str, db: Session = Depends(get_db)) -> User:
 
 def require_role(required_role: str):
   """
-  Dependency to check if user has required role.
+  Dependency to check if user has required role
   """
   def check_role(current_user: User = Depends(get_current_user)):
     if not any(role.name == required_role for role in current_user.roles):

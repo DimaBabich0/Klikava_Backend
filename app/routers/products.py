@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from app.api.responses.rest_response import RestResponse
-from app.core.access_manager import AccessManager
+from app.services.access_manager import AccessManager
 
 router = APIRouter(prefix="/products", tags=["products"])
 

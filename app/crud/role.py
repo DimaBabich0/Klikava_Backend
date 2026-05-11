@@ -36,3 +36,22 @@ def assign_role_to_user(db: Session, user_id: int, role_name: str):
     user.roles.append(role)
     db.commit()
   return user
+
+
+def remove_role_from_user(db: Session, user_id: int, role_id: int):
+  from app.models import User
+  user = db.query(User).filter(User.id == user_id).first()
+  role = get_role_by_id(db, role_id)
+  if not user or not role:
+    raise ValueError("User or role not found")
+  if role in user.roles:
+    user.roles.remove(role)
+    db.commit()
+  return user
+
+def delete_role(db: Session, role_id: int):
+  role = get_role_by_id(db, role_id)
+  if not role:
+    raise ValueError("Role not found")
+  db.delete(role)
+  db.commit()

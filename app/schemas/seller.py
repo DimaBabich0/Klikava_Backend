@@ -9,7 +9,8 @@ class SellerBase(BaseModel):
 
 
 class SellerCreate(SellerBase):
-  pass
+  store_name: str = Field(..., min_length=1, max_length=255)
+  description: Optional[str] = None
 
 
 class SellerResponse(SellerBase):

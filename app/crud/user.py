@@ -53,7 +53,11 @@ def create_user(db: Session, user: UserCreate):
   return db_user
 
 
-def authenticate_user(db: Session, email: str, password: str):
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str
+  ):
   user = get_user_by_email(db, email)
   if not user or user.is_deleted():
     return False

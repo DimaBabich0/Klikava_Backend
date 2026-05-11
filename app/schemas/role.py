@@ -9,7 +9,8 @@ class RoleBase(BaseModel):
 
 
 class RoleCreate(RoleBase):
-  pass
+  name: str = Field(..., min_length=1, max_length=50)
+  description: Optional[str] = None
 
 
 class RoleResponse(RoleBase):

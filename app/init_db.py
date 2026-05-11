@@ -79,7 +79,7 @@ def seed_admin_user():
     admin_user = User(
       username="admin",
       name="Administrator",
-      email="admin@marketplace.local",
+      email="admin@example.com",
       password_hash=password_hash,
       password_salt=password_salt,
       status="active"
@@ -93,7 +93,7 @@ def seed_admin_user():
     print("--- Admin user created successfully ---")
     print("Username: admin")
     print("Password: admin123")
-    print("Email: admin@marketplace.local")
+    print("Email: admin@example.com")
 
   except Exception as e:
     db.rollback()
@@ -110,7 +110,7 @@ def seed_tables():
 
 
 def delete_all_data():
-  """Delete all data from the database (use with caution)"""
+  """Delete all data from the database"""
   db = SessionLocal()
 
   try:
@@ -125,4 +125,3 @@ def delete_all_data():
     raise
   finally:
     db.close()
-
