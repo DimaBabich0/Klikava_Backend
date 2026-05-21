@@ -15,17 +15,10 @@ def create_seller_endpoint(
   current_user: User = Depends(AccessManager.get_current_user),
   db: Session = Depends(get_db)
 ):
-  """Create a seller profile (requires SELLER role)."""
-
-  # Check if user has SELLER role
-  if not current_user.is_seller():
-    raise HTTPException(
-      status_code=status.HTTP_403_FORBIDDEN,
-      detail="User must have SELLER role to create a seller profile"
-    )
+  """Create a seller profile and grant SELLER role to the current user."""
 
   try:
-    new_seller = create_seller(db, seller_data, current_user.id)
+    new_seller = create_seller(db, seller_data, current_user)
     return new_seller
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
@@ -61,17 +54,16 @@ def update_seller(
   current_user: User = Depends(AccessManager.get_current_user),
   db: Session = Depends(get_db)
 ):
-  """Update seller profile (owner only)."""
+  """Update seller profile. Seller role or admin only."""
 
   seller = db.query(Seller).filter(Seller.id == seller_id).first()
   if not seller:
     raise HTTPException(status_code=404, detail="Seller not found")
 
-  # Check if current user owns this seller profile
-  if seller.user_id != current_user.id:
+  if not current_user.is_seller() and not current_user.is_admin():
     raise HTTPException(
       status_code=status.HTTP_403_FORBIDDEN,
-      detail="You can only update your own seller profile"
+      detail="User must have SELLER role or ADMIN role to update a seller profile"
     )
 
   # Update fields
@@ -82,6 +74,16 @@ def update_seller(
 
   if seller_data.description is not None:
     seller.description = seller_data.description
+
+  if seller_data.picture_url is not None:
+    seller.picture_url = seller_data.picture_url
+
+  if seller_data.parent_id is not None:
+    if seller_data.parent_id == seller.id:
+      raise HTTPException(status_code=400, detail="Seller cannot be its own parent")
+    if not db.query(Seller).filter(Seller.id == seller_data.parent_id).first():
+      raise HTTPException(status_code=400, detail="Parent seller not found")
+    seller.parent_id = seller_data.parent_id
 
   db.commit()
   db.refresh(seller)

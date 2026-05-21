@@ -1,29 +1,48 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
-from .role import user_roles  # Import the association table
 
 
 class User(Base):
   __tablename__ = "users"
 
   id = Column(Integer, primary_key=True, index=True)
-  username = Column(String(255), unique=True, nullable=False, index=True)
   name = Column(String(255), nullable=False)
   email = Column(String(255), unique=True, nullable=False, index=True)
-  password_hash = Column(String(255), nullable=False)
-  password_salt = Column(String(255), nullable=False)
-  status = Column(String(50), default="active", nullable=False)
+  phone_number = Column(String(20), unique=True, nullable=True)
   birthday = Column(DateTime, nullable=True)
-  created_at = Column(DateTime, default=datetime.now(), index=True)
-  deleted_at = Column(DateTime, nullable=True)
+  avatar_url = Column(String(512), nullable=True)
 
-  roles = relationship("Role", secondary=user_roles, back_populates="users")
-  sellers = relationship("Seller", back_populates="user", uselist=False)
+  user_roles = relationship(
+    "UserRoles",
+    back_populates="user",
+    cascade="all, delete-orphan"
+  )
+  roles = relationship(
+    "Role",
+    secondary="user_roles",
+    back_populates="users",
+    viewonly=True
+  )
+  credit_cards = relationship(
+    "UserCreditCard",
+    back_populates="user",
+    cascade="all, delete-orphan"
+  )
+  delivery_addresses = relationship(
+    "UserDeliveryAddress",
+    back_populates="user",
+    cascade="all, delete-orphan"
+  )
 
   def is_deleted(self) -> bool:
-    return self.deleted_at is not None
+    return all(user_role.is_deleted() for user_role in self.user_roles)
+
+  def is_active(self) -> bool:
+    return any(
+      not user_role.is_deleted() and user_role.is_active()
+      for user_role in self.user_roles
+    )
 
   def is_seller(self) -> bool:
     return any(role.name == "SELLER" for role in self.roles)

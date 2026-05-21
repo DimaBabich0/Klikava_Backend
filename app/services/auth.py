@@ -6,13 +6,10 @@ from dotenv import load_dotenv
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from typing import Optional, Dict, Any
+from app.database import SECRET_KEY
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
-
-SECRET_KEY = os.getenv("SECRET_KEY")
-if not SECRET_KEY:
-  raise RuntimeError("SECRET_KEY must be set in .env")
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 2
@@ -48,7 +45,7 @@ def verify_password(password: str, password_hash: str, salt: str) -> bool:
 
 def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
   """
-  Create JWT token with expiration.
+  Create JWT token with expiration
 
   Args:
     data: Dictionary to encode (should include 'sub' for subject/user_id)
@@ -72,7 +69,7 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
 
 def decode_token(token: str) -> Optional[Dict[str, Any]]:
   """
-  Decode and validate JWT token.
+  Decode and validate JWT token
 
   Args:
     token: JWT token to decode
@@ -86,19 +83,3 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
   except JWTError:
     return None
 
-
-def authenticate_user(username: str, password: str) -> str:
-  """Authenticate user"""
-  # Your authentication logic
-  # Returns token or None
-  if username == "admin" and password == "123":
-    return "Bearer_test_token_123"
-  return None
-
-
-def verify_token(token: str) -> dict:
-  """Verify token"""
-  # Your verification logic
-  if token == "test_token_123":
-    return {"user_id": 1, "username": "admin"}
-  raise ValueError("Invalid token")

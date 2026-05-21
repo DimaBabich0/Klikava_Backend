@@ -1,11 +1,24 @@
-from app.api.responses.rest_pagination import RestPagination
+from pydantic import BaseModel
+from typing import Optional, List
 
 
-class RestMeta:
-  def __init__(self, pagination: RestPagination | None):
-    self.pagination = pagination
+class RestLink(BaseModel):
+  name: str
+  num: int
+  url: str
 
-  def __json__(self):
-    return {
-      "pagination": self.pagination
-    }
+
+class RestPagination(BaseModel):
+  per_page: int
+  current_page: int
+  total_items: int
+  total_pages: int
+  has_prev: bool
+  has_next: bool
+  links: List[RestLink]
+
+
+class RestMeta(BaseModel):
+  action: Optional[str] = None
+  message: Optional[str] = None
+  pagination: Optional[RestPagination] = None

@@ -4,7 +4,7 @@ from app.database import get_db
 from app.models import User, Role
 from app.schemas import RoleResponse, AssignRoleRequest, RoleCreate, UserResponse
 from app.services.access_manager import AccessManager
-from app.crud import get_roles, create_role, assign_role_to_user
+from app.crud import get_roles, create_role, assign_role_to_user, remove_role_from_user as crud_remove_role_from_user
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 
@@ -21,7 +21,7 @@ def list_roles(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
-def create_role_endpoint(
+def create_role(
   role_data: RoleCreate,
   current_user: User = Depends(AccessManager.require_role("ADMIN")),
   db: Session = Depends(get_db)
@@ -35,7 +35,7 @@ def create_role_endpoint(
 
 
 @router.post("/assign/{user_id}", status_code=status.HTTP_200_OK)
-def assign_role_to_user_endpoint(
+def assign_role_to_user(
   user_id: int,
   role_request: AssignRoleRequest,
   current_user: User = Depends(AccessManager.require_role("ADMIN")),
@@ -43,37 +43,17 @@ def assign_role_to_user_endpoint(
 ):
   """Assign a role to a user (Admin only)"""
   try:
-    user = assign_role_to_user(db, user_id, role_request.role_name)
+    user = assign_role_to_user(
+      db,
+      user_id,
+      role_request.role_name,
+      role_request.login,
+      role_request.password
+    )
     return {
       "message": f"Role {role_request.role_name} assigned to user {user_id}",
-      "user": UserResponse.from_orm(user)
+      "user": UserResponse.model_validate(user)
     }
   except ValueError as e:
     raise HTTPException(status_code=400, detail=str(e))
 
-
-@router.delete("/remove/{user_id}/{role_id}", status_code=status.HTTP_200_OK)
-def remove_role_from_user(
-  user_id: int,
-  role_id: int,
-  current_user: User = Depends(AccessManager.require_role("ADMIN")),
-  db: Session = Depends(get_db)
-):
-  """Remove a role from a user (Admin only)."""
-
-  user = db.query(User).filter(User.id == user_id).first()
-  if not user or user.is_deleted():
-    raise HTTPException(status_code=404, detail="User not found")
-
-  role = db.query(Role).filter(Role.id == role_id).first()
-  if not role:
-    raise HTTPException(status_code=404, detail="Role not found")
-
-  if role not in user.roles:
-    raise HTTPException(status_code=400, detail="User does not have this role")
-
-  user.roles.remove(role)
-  db.commit()
-  db.refresh(user)
-
-  return {"message": f"Role {role.name} removed from user {user_id}"}

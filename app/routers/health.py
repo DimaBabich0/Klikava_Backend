@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
-from app.init_db import init_db, seed_tables, delete_all_data
+from app.services.init_db import init_db, seed_tables, delete_all_data
+from app.database import SECRET_KEY
 
 router = APIRouter(tags=["health"])
 
@@ -11,7 +12,7 @@ def health_check():
 
 @router.post("/reset-db", include_in_schema=False)
 def reset_db(Password: str):
-  if Password != "your_secret_password":
+  if Password != SECRET_KEY:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
   delete_all_data()
   init_db()

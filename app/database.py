@@ -11,11 +11,13 @@ load_dotenv(BASE_DIR / ".env")
 # Database configuration from environment variables
 NAME = os.getenv("NAME")
 PASSWORD = os.getenv("PASSWORD")
-ADRESS = os.getenv("ADRESS")
+ADDRESS = os.getenv("ADDRESS")
 PORT = os.getenv("PORT")
 DATABASE = os.getenv("DATABASE")
 DEBUG_MODE = os.getenv("DEBUG_MODE")
-DATABASE_URL = f"mysql+pymysql://{NAME}:{PASSWORD}@{ADRESS}:{PORT}/{DATABASE}"
+SECRET_KEY = os.getenv("SECRET_KEY")
+DATABASE_URL = f"mysql+pymysql://{NAME}:{PASSWORD}@{ADDRESS}:{PORT}/{DATABASE}"
+
 
 if not DATABASE_URL:
   raise RuntimeError("DATABASE_URL must be set in .env")

@@ -5,29 +5,43 @@ from .role import RoleResponse
 
 
 class UserCreate(BaseModel):
-  username: str = Field(..., min_length=2, max_length=32)
+  login: str = Field(..., min_length=2, max_length=32)
   email: EmailStr
   password: str = Field(..., min_length=8)
   name: str = Field(..., min_length=1, max_length=32)
+  phone_number: Optional[str] = None
   birthday: Optional[datetime] = None
+  avatar_url: Optional[str] = None
 
 
 class UserLogin(BaseModel):
-  email: EmailStr
+  login: str
   password: str
 
 
 class UserBase(BaseModel):
-  username: str
   name: str
   email: str
-  status: str
+  phone_number: Optional[str] = None
   birthday: Optional[datetime]
+  avatar_url: Optional[str] = None
+
+
+class UserUpdate(BaseModel):
+  name: Optional[str] = Field(None, min_length=1, max_length=32)
+  email: Optional[EmailStr] = None
+  phone_number: Optional[str] = None
+  birthday: Optional[datetime] = None
+  password: Optional[str] = Field(None, min_length=8)
+  avatar_url: Optional[str] = None
+
+
+class UserBanRequest(BaseModel):
+  reason: Optional[str] = None
 
 
 class UserResponse(UserBase):
   id: int
-  created_at: datetime
   roles: List[RoleResponse] = []
 
   class Config:

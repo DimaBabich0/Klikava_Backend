@@ -1,19 +1,11 @@
-from app.api.responses.rest_meta import RestMeta
+from pydantic import BaseModel
+from typing import Any, Optional
+
 from app.api.responses.rest_status import RestStatus
+from app.api.responses.rest_meta import RestMeta
 
 
-class RestResponse:
-  def __init__(self,
-               status: RestStatus | None = None,
-               meta: RestMeta | None = None,
-               data: any = None):
-    self.status = status if status != None else RestStatus()
-    self.meta = meta
-    self.data = data
-
-  def __json__(self):
-    return {
-      "status": self.status,
-      "meta": self.meta,
-      "data": self.data
-    }
+class RestResponse(BaseModel):
+  status: RestStatus
+  meta: Optional[RestMeta] = None
+  data: Any = None

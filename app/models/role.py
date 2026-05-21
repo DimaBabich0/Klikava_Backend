@@ -1,18 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
-
-# Association table for many-to-many User-Role relationship
-user_roles = Table(
-  "user_roles",
-  Base.metadata,
-  Column("user_id", Integer, ForeignKey(
-    "users.id", ondelete="CASCADE"), primary_key=True),
-  Column("role_id", Integer, ForeignKey(
-    "roles.id", ondelete="CASCADE"), primary_key=True),
-  Column("created_at", DateTime, default=datetime.now(), nullable=False),
-)
 
 
 class Role(Base):
@@ -20,7 +9,24 @@ class Role(Base):
 
   id = Column(Integer, primary_key=True, index=True)
   name = Column(String(50), unique=True, nullable=False, index=True)
-  description = Column(Text, nullable=True)
-  created_at = Column(DateTime, default=datetime.now(), nullable=False)
+  description = Column(String(255), nullable=True)
+  
+  create_level = Column(Integer, default=1, nullable=False)
+  read_level = Column(Integer, default=1, nullable=False)
+  update_level = Column(Integer, default=1, nullable=False)
+  deleted_level = Column(Integer, default=1, nullable=False)
 
-  users = relationship("User", secondary=user_roles, back_populates="roles")
+  created_at = Column(DateTime, default=datetime.now, nullable=False)
+  deleted_at = Column(DateTime, nullable=True)
+
+  user_roles = relationship(
+    "UserRoles",
+    back_populates="role",
+    cascade="all, delete-orphan"
+  )
+  users = relationship(
+    "User",
+    secondary="user_roles",
+    back_populates="roles",
+    viewonly=True
+  )
