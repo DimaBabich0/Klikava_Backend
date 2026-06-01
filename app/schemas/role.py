@@ -28,3 +28,12 @@ class AssignRoleRequest(BaseModel):
   role_name: str = Field(..., min_length=1, max_length=50)
   login: str = Field(..., min_length=2, max_length=32)
   password: str = Field(..., min_length=8)
+
+
+class RoleUpdate(BaseModel):
+  name: Optional[str] = Field(None, min_length=1, max_length=50)
+  description: Optional[str] = None
+  create_level: Optional[int] = Field(None, ge=0)
+  read_level: Optional[int] = Field(None, ge=0)
+  update_level: Optional[int] = Field(None, ge=0)
+  deleted_level: Optional[int] = Field(None, ge=0)

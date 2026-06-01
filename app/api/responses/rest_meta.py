@@ -15,7 +15,7 @@ class RestPagination(BaseModel):
   total_pages: int
   has_prev: bool
   has_next: bool
-  links: List[RestLink]
+  links: List[RestLink] = []
 
 
 class RestMeta(BaseModel):

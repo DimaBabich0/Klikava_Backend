@@ -3,7 +3,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from app.services.access_manager import AccessManager
-from app.routers import health_router, user_router, seller_router, roles_router
+from app.routers import health_router, user_router, user_delivery_address_router, user_credit_card_router, pictures_router, shipment_router, categories_router, discounts_router, features_router, seller_router, roles_router, product_router
 from sqlalchemy import inspect
 from contextlib import asynccontextmanager
 from app.database import SessionLocal, engine, Base
@@ -41,8 +41,15 @@ app.middleware("http")(AccessManager.verify_request)
 # Add controllers
 app.include_router(health_router)
 app.include_router(user_router)
+app.include_router(user_delivery_address_router)
+app.include_router(user_credit_card_router)
+app.include_router(pictures_router)
+app.include_router(shipment_router)
+app.include_router(categories_router)
+app.include_router(discounts_router)
+app.include_router(features_router)
 app.include_router(roles_router)
-# app.include_router(product_router)
+app.include_router(product_router)
 app.include_router(seller_router)
 
 # Add static files

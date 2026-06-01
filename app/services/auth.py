@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from typing import Optional, Dict, Any
-from app.database import SECRET_KEY
+from app.services.config import SECRET_KEY
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")

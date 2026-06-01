@@ -9,7 +9,7 @@
 
 2. Activate virtual environment:
    ```
-   Scripts\activate.bat
+   .venv\Scripts\activate.bat
    ```
 
 3. Install the dependencies:
@@ -23,3 +23,10 @@
    ```
    python -m uvicorn app.main:app --reload
    ```
+
+
+## Launch tests
+Command for tests:
+```
+pytest -q
+```

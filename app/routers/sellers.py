@@ -66,7 +66,6 @@ def update_seller(
       detail="User must have SELLER role or ADMIN role to update a seller profile"
     )
 
-  # Update fields
   if seller_data.store_name and seller_data.store_name != seller.store_name:
     if db.query(Seller).filter(Seller.store_name == seller_data.store_name).first():
       raise HTTPException(status_code=400, detail="Store name already exists")

@@ -1,9 +1,13 @@
+from datetime import datetime
+import math
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.responses.controller_rest import ControllerRest
-from app.api.responses.rest_meta import RestMeta
+from app.api.responses.response_rest import ResponseRest
+from app.api.responses.rest_meta import RestLink, RestMeta, RestPagination
 from app.api.responses.rest_status import RestStatus
+
 from app.crud import (
   authenticate_user as crud_authenticate_user,
   ban_user as crud_ban_user,
@@ -28,7 +32,7 @@ from app.services.access_manager import AccessManager
 from app.services.auth import create_token
 
 router = APIRouter(prefix="/users", tags=["users"])
-controller = ControllerRest()
+response = ResponseRest()
 
 
 def _meta(action: str, message: str | None = None) -> RestMeta:
@@ -53,26 +57,18 @@ def _can_manage_users(current_user: User) -> bool:
   return current_user.is_admin() or current_user.is_moderator()
 
 
-def _forbidden(action: str, message: str):
-  return controller.error(
-    status=RestStatus.forbidden_403,
-    meta=_meta(action, message),
-    data=None,
-  )
-
-
 @router.post("/register", response_model=None)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
   """Register a new user with default BUYER role."""
   try:
     new_user = create_user(db, user_data)
-    return controller.success(
+    return response.success(
       status=RestStatus.created_201,
       meta=_meta("register_user", "User registered"),
       data=_serialize_user(new_user),
     )
   except ValueError as e:
-    return controller.error(
+    return response.error(
       status=RestStatus.bad_request_400,
       meta=_meta("register_user", str(e)),
       data=None,
@@ -85,7 +81,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
   is_valid, db_user = crud_authenticate_user(
     db, credentials.login, credentials.password)
   if not is_valid or not db_user:
-    return controller.error(
+    return response.error(
       status=RestStatus.unauthorized_401,
       meta=_meta("login_user", "Invalid credentials"),
       data=None,
@@ -104,7 +100,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
   token_data = token_response.model_dump(mode="json")
   token_data["user"] = _serialize_user(db_user)
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("login_user", "User logged in"),
     data=token_data,
@@ -113,26 +109,27 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
 
 @router.get("", response_model=None)
 def list_users(
-  skip: int = Query(0, ge=0),
-  limit: int = Query(100, ge=1, le=500),
+  per_page: int = Query(10, ge=1, le=100),
+  page: int = Query(1, ge=1),
   db: Session = Depends(get_db),
   current_user: User = Depends(AccessManager.get_current_user),
 ):
-  """Get all users. Admin or moderator only."""
+  """Get paginated users. Admin or moderator only."""
   if not _can_manage_users(current_user):
-    return _forbidden("list_users", "Only admin or moderator can list users")
+    return response.forbidden("Only admin or moderator can list users")
 
-  users = get_users(db, skip=skip, limit=limit)
   total = get_users_count(db)
-  return controller.success(
+  users = get_users(db, skip=(page - 1) * per_page, limit=per_page)
+  pagination = response.build_pagination(page, per_page, total)
+
+  return response.success_pagination(
     status=RestStatus.ok_200,
-    meta=_meta("list_users", f"Users found: {len(users)} of {total}"),
-    data={
-      "items": _serialize_users(users),
-      "skip": skip,
-      "limit": limit,
-      "total": total,
-    },
+    meta=RestMeta(
+      action="list_users",
+      message=f"Users found: {len(users)}",
+      pagination=pagination,
+    ),
+    data={"items": _serialize_users(users)},
   )
 
 
@@ -141,7 +138,7 @@ def get_current_user(
   current_user: User = Depends(AccessManager.get_current_user),
 ):
   """Get current user from Authorization token."""
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("get_current_user", "Current user found"),
     data=_serialize_user(current_user),
@@ -156,17 +153,17 @@ def get_user_by_email_route(
 ):
   """Get user by email. Admin or moderator only."""
   if not _can_manage_users(current_user):
-    return _forbidden("get_user_by_email", "Only admin or moderator can search users by email")
+    return response.forbidden("Only admin or moderator can search users by email")
 
   user = get_user_by_email(db, email)
   if not user:
-    return controller.error(
+    return response.error(
       status=RestStatus.not_found_404,
       meta=_meta("get_user_by_email", "User not found"),
       data=None,
     )
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("get_user_by_email", "User found"),
     data=_serialize_user(user),
@@ -182,10 +179,10 @@ def ban_user(
 ):
   """Ban user by ID. Admin or moderator only."""
   if not _can_manage_users(current_user):
-    return _forbidden("ban_user", "Only admin or moderator can ban users")
+    return response.forbidden("Only admin or moderator can ban users")
 
   if current_user.id == user_id:
-    return controller.error(
+    return response.error(
       status=RestStatus.bad_request_400,
       meta=_meta("ban_user", "User cannot ban himself"),
       data=None,
@@ -193,7 +190,7 @@ def ban_user(
 
   user = get_user_by_id(db, user_id)
   if not user:
-    return controller.error(
+    return response.error(
       status=RestStatus.not_found_404,
       meta=_meta("ban_user", "User not found"),
       data=None,
@@ -204,7 +201,7 @@ def ban_user(
   if ban_data and ban_data.reason:
     message = f"{message}: {ban_data.reason}"
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("ban_user", message),
     data=_serialize_user(banned_user),
@@ -219,17 +216,17 @@ def get_users_roles(
 ):
   """Get user's roles by user ID."""
   if not _can_read_user(current_user, user_id):
-    return _forbidden("get_user_roles", "Only owner, admin or moderator can get user roles")
+    return response.forbidden("Only owner, admin or moderator can get user roles")
 
   user = get_user_by_id(db, user_id)
   if not user:
-    return controller.error(
+    return response.error(
       status=RestStatus.not_found_404,
       meta=_meta("get_user_roles", "User not found"),
       data=None,
     )
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("get_user_roles", "User roles found"),
     data=_serialize_user(user)["roles"],
@@ -244,17 +241,17 @@ def get_user(
 ):
   """Get user by ID."""
   if not _can_read_user(current_user, user_id):
-    return _forbidden("get_user", "Only owner, admin or moderator can get user")
+    return response.forbidden("Only owner, admin or moderator can get user")
 
   user = get_user_by_id(db, user_id)
   if not user:
-    return controller.error(
+    return response.error(
       status=RestStatus.not_found_404,
       meta=_meta("get_user", "User not found"),
       data=None,
     )
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("get_user", "User found"),
     data=_serialize_user(user),
@@ -270,11 +267,11 @@ def update_user(
 ):
   """Update user profile. Owner or admin only."""
   if current_user.id != user_id and not current_user.is_admin():
-    return _forbidden("update_user", "Only owner or admin can update user")
+    return response.forbidden("Only owner or admin can update user")
 
   user = get_user_by_id(db, user_id)
   if not user:
-    return controller.error(
+    return response.error(
       status=RestStatus.not_found_404,
       meta=_meta("update_user", "User not found"),
       data=None,
@@ -283,14 +280,54 @@ def update_user(
   try:
     updated_user = crud_update_user(db, user, user_data)
   except ValueError as e:
-    return controller.error(
+    return response.error(
       status=RestStatus.bad_request_400,
       meta=_meta("update_user", str(e)),
       data=None,
     )
 
-  return controller.success(
+  return response.success(
     status=RestStatus.ok_200,
     meta=_meta("update_user", "User updated"),
     data=_serialize_user(updated_user),
+  )
+
+
+@router.delete("/{user_id}", response_model=None)
+def delete_user(
+  user_id: int,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(AccessManager.get_current_user),
+):
+  """Delete user. Owner or admin only."""
+  if current_user.id != user_id and not current_user.is_admin():
+    return response.forbidden("Only owner or admin can delete user")
+
+  user = get_user_by_id(db, user_id)
+  if not user:
+    return response.error(
+      status=RestStatus.not_found_404,
+      meta=_meta("delete_user", "User not found"),
+      data=None,
+    )
+
+  if user.is_deleted():
+    return response.error(
+      status=RestStatus.not_found_404,
+      meta=_meta("delete_user", "User already deleted"),
+      data=None,
+    )
+
+  now = datetime.now()
+  for user_role in user.user_roles:
+    if not user_role.is_deleted():
+      user_role.deleted_at = now
+      user_role.deactivate()
+
+  db.commit()
+
+  return response.success(
+    status=RestStatus.ok_200,
+    meta=_meta("delete_user", "User deleted"),
+    data=user,
   )

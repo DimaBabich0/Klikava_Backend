@@ -19,3 +19,4 @@ class ProductVersion(Base):
   product = relationship("Product", back_populates="versions")
   category = relationship("Category", back_populates="product_versions")
   variants = relationship("ProductVariant", back_populates="product_version")
+  pictures = relationship("ProductPicture", back_populates="product_version")
