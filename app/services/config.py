@@ -15,3 +15,8 @@ DATABASE = os.getenv("DATABASE")
 DEBUG_MODE = os.getenv("DEBUG_MODE")
 SECRET_KEY = os.getenv("SECRET_KEY")
 DATABASE_URL = f"mysql+pymysql://{NAME}:{PASSWORD}@{ADDRESS}:{PORT}/{DATABASE}"
+CORS_ORIGINS = [
+  origin.strip()
+  for origin in os.getenv("CORS_ORIGINS", "*").split(",")
+  if origin.strip()
+]

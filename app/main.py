@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -8,6 +9,7 @@ from sqlalchemy import inspect
 from contextlib import asynccontextmanager
 from app.database import SessionLocal, engine, Base
 from app.services.init_db import init_db, seed_tables
+from app.services.config import CORS_ORIGINS
 
 
 @asynccontextmanager
@@ -37,6 +39,15 @@ app = FastAPI(title="Marketplace API", lifespan=lifespan)
 
 # Add access manager for access control
 app.middleware("http")(AccessManager.verify_request)
+
+# Add CORS for browser clients
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=CORS_ORIGINS,
+  allow_credentials="*" not in CORS_ORIGINS,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
 
 # Add controllers
 app.include_router(health_router)
