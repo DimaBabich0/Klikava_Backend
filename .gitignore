@@ -213,3 +213,7 @@ Scripts/*
 pyvenv.cfg
 Static/*
 App/Static/*
+
+# Logs
+logs/
+*.log

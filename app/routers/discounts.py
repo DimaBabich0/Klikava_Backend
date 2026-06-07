@@ -95,8 +95,12 @@ def create_discount_endpoint(
       description=discount_data.description,
       start_date=discount_data.start_date,
       end_date=discount_data.end_date,
-      discount_percentage=discount_data.discount_percentage,
-      price=discount_data.price,
+      discount_type=discount_data.discount_type,
+      value=discount_data.value,
+      coupon_code=discount_data.coupon_code,
+      target_type=discount_data.target_type,
+      target_id=discount_data.target_id,
+      is_active=discount_data.is_active,
     )
   except ValueError as e:
     return response.error(
@@ -177,4 +181,3 @@ def _forbidden(action: str, message: str):
     meta=_meta(action, message),
     data=None,
   )
-

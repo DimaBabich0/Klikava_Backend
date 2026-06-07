@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -12,11 +12,17 @@ class ProductVersion(Base):
   category_id = Column(Integer, ForeignKey("categories.id"))
   title = Column(String(32), nullable=False)
   description = Column(Text, nullable=True)
+  delivery_info = Column(Text, nullable=True)
   slug = Column(String(64), nullable=False, unique=True)
-  created_at = Column(DateTime, default=datetime.now(), index=True)
+  version_number = Column(Integer, default=1, nullable=False)
+  created_at = Column(DateTime, default=datetime.now, index=True)
   deleted_at = Column(DateTime, nullable=True)
 
-  product = relationship("Product", back_populates="versions")
+  product = relationship(
+    "Product",
+    back_populates="versions",
+    foreign_keys=[product_id],
+  )
   category = relationship("Category", back_populates="product_versions")
   variants = relationship("ProductVariant", back_populates="product_version")
   pictures = relationship("ProductPicture", back_populates="product_version")

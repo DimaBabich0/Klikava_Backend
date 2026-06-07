@@ -15,9 +15,11 @@ from .shipment import (
 )
 from .product import (
     ProductCreate, ProductUpdate, ProductResponse,
+    ProductStatusUpdate,
     ProductVersionCreate, ProductVersionUpdate,
     ProductVariantCreate, ProductVariantUpdate,
     ProductPictureCreate, ProductPictureUpdate, ProductPictureResponse,
+    ReviewCreate, ReviewUpdate, ReviewResponse,
 )
 from .category import (
     CategoryCreate, CategoryUpdate, CategoryResponse,
@@ -38,9 +40,11 @@ __all__ = [
     "UserCreditCardCreate", "UserCreditCardUpdate", "UserCreditCardResponse",
     "ShipmentCreate", "ShipmentUpdate", "ShipmentResponse",
     "ProductCreate", "ProductUpdate", "ProductResponse",
+    "ProductStatusUpdate",
     "ProductVersionCreate", "ProductVersionUpdate",
     "ProductVariantCreate", "ProductVariantUpdate",
     "ProductPictureCreate", "ProductPictureUpdate", "ProductPictureResponse",
+    "ReviewCreate", "ReviewUpdate", "ReviewResponse",
     "CategoryCreate", "CategoryUpdate", "CategoryResponse",
     "DiscountCreate", "DiscountUpdate", "DiscountResponse",
     "FeatureCreate", "FeatureUpdate", "FeatureResponse",

@@ -7,7 +7,9 @@ from app.services.auth import decode_token
 from app.services.config import DEBUG_MODE
 from app.database import get_db
 from app.models import User
+from app.services.logger import setup_logger
 
+logger = setup_logger(__name__)
 response = ResponseRest()
 
 class AccessManager:
@@ -18,6 +20,7 @@ class AccessManager:
     "/",
     "/users/login",
     "/users/register",
+    "/products",
     "/docs",
     "/openapi.json",
     "/health",
@@ -43,7 +46,7 @@ class AccessManager:
     # Check token in headers
     token = request.headers.get("Authorization")
     if not token:
-      print("--- Token not found in request headers ---")
+      logger.error("Token not found in request headers")
       return response.unauthorized("Token not found in request headers")
 
     # Check token validity
@@ -55,7 +58,7 @@ class AccessManager:
       # Save user data in request
       request.state.user = user_data
     except Exception as e:
-      print(f"--- Token validation failed: {e} ---")
+      logger.error(f"Token validation failed: {e} ---")
       return response.unauthorized("Invalid token")
 
 
@@ -66,13 +69,11 @@ class AccessManager:
   @staticmethod
   def validate_token(token: str) -> dict:
     """Validate token and return user data"""
-    print(token)
     if not token.startswith("Bearer "):
       raise ValueError("Invalid token format")
 
     token = token.split(" ", 1)[1]
     payload = decode_token(token)
-    print(payload)
     if not payload:
       raise ValueError("Invalid token")
     return payload
@@ -85,7 +86,7 @@ class AccessManager:
       return AccessManager._get_debug_user()
 
     if not hasattr(request.state, "user"):
-      print("--- User data not found in request state ---")
+      logger.error("--- User data not found in request state ---")
       raise HTTPException(
         status_code=401,
         detail="User data not found in request state",

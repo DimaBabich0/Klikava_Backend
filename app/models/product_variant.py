@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Table, DECIMAL
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, DECIMAL
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -12,8 +12,7 @@ class ProductVariant(Base):
   sku_code = Column(String(64), nullable=False, unique=True)
   price = Column(DECIMAL(10, 2), nullable=False)
   stock = Column(Integer, default=0, nullable=False)
-  discount = Column(Integer, default=0, nullable=False)
-  created_at = Column(DateTime, default=datetime.now(), index=True)
+  created_at = Column(DateTime, default=datetime.now, index=True)
   deleted_at = Column(DateTime, nullable=True)
 
   product_version = relationship("ProductVersion", back_populates="variants")

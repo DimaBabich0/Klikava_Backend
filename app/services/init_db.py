@@ -15,6 +15,8 @@ from app.models import (
   ProductFeature,
   ProductVariant,
   ProductVersion,
+  ProductView,
+  Review,
   Role,
   Seller,
   User,
@@ -410,7 +412,8 @@ def seed_sellers():
       if seller:
         continue
 
-      user = db.query(User).filter(User.email == seller_data["user_email"]).first()
+      user = db.query(User).filter(
+        User.email == seller_data["user_email"]).first()
       if not user:
         raise ValueError(f"Seller user {seller_data['user_email']} not found")
 
@@ -705,7 +708,9 @@ def seed_products():
         continue
 
       product = Product(seller_id=seller.id,
-                        status="active", pageviews=index * 7)
+                        status="APPROVED",
+                        pageviews=index * 7,
+                        unique_pageviews=index * 5)
       db.add(product)
       db.flush()
       seeded_products += 1
@@ -715,17 +720,19 @@ def seed_products():
         category_id=category.id,
         title=title[:32],
         description=f"{title} from {seller_name}. Demo catalog product.",
+        delivery_info="Standard delivery in 2-5 business days.",
         slug=slug[:64],
+        version_number=1,
       )
       db.add(version)
       db.flush()
+      product.current_version_id = version.id
 
       variant = ProductVariant(
         product_version_id=version.id,
         sku_code=sku,
         price=price,
         stock=stock,
-        discount=0,
       )
       db.add(variant)
       db.flush()
@@ -769,21 +776,30 @@ def seed_discounts():
         "description": "Launch discount for selected mobile phones.",
         "start_date": now - timedelta(days=7),
         "end_date": now + timedelta(days=30),
-        "discount_percentage": Decimal("10.00"),
+        "discount_type": "PERCENTAGE",
+        "value": Decimal("10.00"),
+        "target_type": "CATEGORY",
+        "target_title": "Mobile Phones",
       },
       {
         "name": "Computer Weekend",
         "description": "Weekend computer deals.",
         "start_date": now - timedelta(days=2),
         "end_date": now + timedelta(days=14),
-        "discount_percentage": Decimal("15.00"),
+        "discount_type": "PERCENTAGE",
+        "value": Decimal("15.00"),
+        "target_type": "SELLER",
+        "target_title": "ByteHouse",
       },
       {
         "name": "Home Bundle",
         "description": "Bundle discount for home appliances.",
         "start_date": now - timedelta(days=1),
         "end_date": now + timedelta(days=45),
-        "discount_percentage": Decimal("8.00"),
+        "discount_type": "PERCENTAGE",
+        "value": Decimal("8.00"),
+        "target_type": "CATEGORY",
+        "target_title": "Home Appliances",
       },
     ]
 
@@ -793,7 +809,21 @@ def seed_discounts():
         Discount.name == discount_data["name"]).first()
       if discount:
         continue
-      db.add(Discount(**discount_data))
+      target_title = discount_data.pop("target_title")
+      target_type = discount_data["target_type"]
+      if target_type == "CATEGORY":
+        target = db.query(Category).filter(
+          Category.title == target_title).first()
+      else:
+        target = db.query(Seller).filter(
+          Seller.store_name == target_title).first()
+      if not target:
+        raise ValueError(f"Discount target {target_title} not found")
+      db.add(Discount(
+        **discount_data,
+        target_id=target.id,
+        discount_percentage=discount_data["value"] if discount_data["discount_type"] == "PERCENTAGE" else None,
+      ))
       seeded_discounts += 1
     db.flush()
 
@@ -896,6 +926,9 @@ def seed_cart_orders():
           order_id=order.id,
           product_variant_id=variant.id,
           quantity=quantity,
+          price_snapshot=variant.price,
+          discount_snapshot=Decimal("0.00"),
+          final_price_snapshot=variant.price,
         ))
 
       seeded_count += 1
@@ -906,6 +939,79 @@ def seed_cart_orders():
   except Exception as e:
     db.rollback()
     print(f"--- Error seeding cart orders: {e} ---")
+    raise
+  finally:
+    db.close()
+
+
+def seed_product_views():
+  """Seed product views for analytics."""
+  db = SessionLocal()
+
+  try:
+    products = db.query(Product).limit(10).all()
+    users = db.query(User).filter(User.email.like("buyer%")).all()
+
+    seeded_count = 0
+    for product in products:
+      for user in users[:2]:
+        view = ProductView(
+          product_id=product.id,
+          user_id=user.id,
+          viewer_key=None,
+          viewed_at=datetime.now() - timedelta(hours=1),
+        )
+        db.add(view)
+        seeded_count += 1
+
+    db.commit()
+    print(f"--- Seeded {seeded_count} product views successfully ---")
+
+  except Exception as e:
+    db.rollback()
+    print(f"--- Error seeding product views: {e} ---")
+    raise
+  finally:
+    db.close()
+
+
+def seed_reviews():
+  """Seed product reviews."""
+  db = SessionLocal()
+
+  try:
+    variants = db.query(ProductVariant).filter(
+      ProductVariant.sku_code.like("DEMO-%")).limit(5).all()
+    users = db.query(User).filter(User.email.like("buyer%")).all()
+
+    reviews_data = [
+      {"rating": 5, "comment": "Excellent product, highly recommended!"},
+      {"rating": 4, "comment": "Good quality, fast delivery."},
+      {"rating": 5, "comment": "Perfect! Exactly as described."},
+      {"rating": 3, "comment": "Average product, could be better."},
+      {"rating": 4, "comment": "Very satisfied with my purchase."},
+    ]
+
+    seeded_count = 0
+    for idx, variant in enumerate(variants):
+      for user_idx, user in enumerate(users):
+        review = Review(
+          user_id=user.id,
+          product_variant_id=variant.id,
+          rating=reviews_data[(idx + user_idx) % len(reviews_data)]["rating"],
+          comment=reviews_data[(idx + user_idx) %
+                               len(reviews_data)]["comment"],
+          created_at=datetime.now() - timedelta(days=idx + user_idx),
+        )
+        db.add(review)
+        seeded_count += 1
+
+    db.commit()
+    print(f"--- Seeded {seeded_count} reviews successfully ---")
+
+  except Exception as e:
+    db.rollback()
+    print(f"--- Error seeding reviews: {e} ---")
     raise
   finally:
     db.close()
@@ -922,6 +1028,8 @@ def seed_tables():
   seed_products()
   seed_discounts()
   seed_cart_orders()
+  seed_product_views()
+  seed_reviews()
 
 
 def delete_all_data():

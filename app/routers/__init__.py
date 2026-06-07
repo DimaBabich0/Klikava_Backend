@@ -11,3 +11,4 @@ from .shipments import router as shipment_router
 from .categories import router as categories_router
 from .discounts import router as discounts_router
 from .features import router as features_router
+from .logs import router as logs_router

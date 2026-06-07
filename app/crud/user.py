@@ -42,15 +42,12 @@ def create_user(db: Session, user: UserCreate):
   if get_user_role_by_login(db, user.login):
     raise ValueError("Login already exists")
 
-  # Get default BUYER role
   buyer_role = db.query(Role).filter(Role.name == "BUYER").first()
   if not buyer_role:
     raise ValueError("Default BUYER role not found")
 
-  # Hash password with salt
   password_hash, password_salt = hash_password(user.password)
 
-  # Create new user
   db_user = User(
     name=user.name,
     email=user.email,

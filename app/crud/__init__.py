@@ -43,13 +43,15 @@ from .feature import (
 )
 from .product import (
   create_product, get_product_by_id, get_product_by_slug, get_products, get_products_count,
-  update_product, delete_product, search_products,
+  update_product, delete_product, search_products, create_product_revision, set_product_status,
   create_product_version, get_product_version_by_id, get_product_versions,
   update_product_version, delete_product_version,
   create_product_variant, get_product_variant_by_id, get_product_variants,
   update_product_variant, delete_product_variant,
   create_product_picture, get_product_picture_by_id, get_product_pictures,
   update_product_picture, delete_product_picture,
+  create_review, delete_review, get_product_reviews, get_related_products,
+  get_variant_price, record_product_view, update_review,
 )
 
 __all__ = [
@@ -71,11 +73,13 @@ __all__ = [
   "create_feature", "get_feature_by_id", "get_features",
   "get_features_count", "update_feature", "delete_feature",
   "create_product", "get_product_by_id", "get_product_by_slug", "get_products", "get_products_count",
-  "update_product", "delete_product", "search_products",
+  "update_product", "delete_product", "search_products", "create_product_revision", "set_product_status",
   "create_product_version", "get_product_version_by_id", "get_product_versions",
   "update_product_version", "delete_product_version",
   "create_product_variant", "get_product_variant_by_id", "get_product_variants",
   "update_product_variant", "delete_product_variant",
   "create_product_picture", "get_product_picture_by_id", "get_product_pictures",
   "update_product_picture", "delete_product_picture",
+  "create_review", "delete_review", "get_product_reviews", "get_related_products",
+  "get_variant_price", "record_product_view", "update_review",
 ]
