@@ -78,12 +78,11 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=None)
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
   """Login user and return JWT token."""
-  is_valid, db_user = crud_authenticate_user(
-    db, credentials.login, credentials.password)
+  is_valid, db_user = crud_authenticate_user(db, credentials.login_email, credentials.password)
   if not is_valid or not db_user:
     return response.error(
       status=RestStatus.unauthorized_401,
-      meta=_meta("login_user", "Invalid credentials"),
+      meta=_meta("login_user", "Invalid login, email or password"),
       data=None,
     )
 

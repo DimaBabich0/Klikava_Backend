@@ -82,71 +82,71 @@ def create_role(
     )
 
 
-@router.post("/assign/{user_id}", response_model=None)
-def assign_role(
-  user_id: int,
-  role_request: AssignRoleRequest,
-  db: Session = Depends(get_db),
-  current_user: User = Depends(AccessManager.get_current_user),
-):
-  """Assign a role to a user. Admin only."""
-  if not _can_manage_roles(current_user):
-    return response.forbidden("Only admin can assign roles")
+# @router.post("/assign/{user_id}", response_model=None)
+# def assign_role(
+#   user_id: int,
+#   role_request: AssignRoleRequest,
+#   db: Session = Depends(get_db),
+#   current_user: User = Depends(AccessManager.get_current_user),
+# ):
+#   """Assign a role to a user. Admin only."""
+#   if not _can_manage_roles(current_user):
+#     return response.forbidden("Only admin can assign roles")
 
-  try:
-    user = crud_assign_role_to_user(
-      db,
-      user_id,
-      role_request.role_name,
-      role_request.login,
-      role_request.password,
-    )
-    return response.success(
-      status=RestStatus.ok_200,
-      meta=_meta(
-        "assign_role", f"Role '{role_request.role_name}' assigned to user {user_id}"),
-      data={"user_id": user.id, "roles": [r.name for r in user.roles]},
-    )
-  except ValueError as e:
-    return response.error(
-      status=RestStatus.bad_request_400,
-      meta=_meta("assign_role", str(e)),
-      data=None,
-    )
+#   try:
+#     user = crud_assign_role_to_user(
+#       db,
+#       user_id,
+#       role_request.role_name,
+#       role_request.login,
+#       role_request.password,
+#     )
+#     return response.success(
+#       status=RestStatus.ok_200,
+#       meta=_meta(
+#         "assign_role", f"Role '{role_request.role_name}' assigned to user {user_id}"),
+#       data={"user_id": user.id, "roles": [r.name for r in user.roles]},
+#     )
+#   except ValueError as e:
+#     return response.error(
+#       status=RestStatus.bad_request_400,
+#       meta=_meta("assign_role", str(e)),
+#       data=None,
+#     )
 
 
-@router.delete("/assign/{user_id}", response_model=None)
-def remove_role(
-  user_id: int,
-  role_request: AssignRoleRequest,
-  db: Session = Depends(get_db),
-  current_user: User = Depends(AccessManager.get_current_user),
-):
-  """Remove a role from a user. Admin only."""
-  if not _can_manage_roles(current_user):
-    return response.forbidden("Only admin can remove roles")
+# @router.delete("/assign/{user_id}", response_model=None)
+# def remove_role(
+#   user_id: int,
+#   role_request: AssignRoleRequest,
+#   db: Session = Depends(get_db),
+#   current_user: User = Depends(AccessManager.get_current_user),
+# ):
+#   """Remove a role from a user. Admin only."""
+#   if not _can_manage_roles(current_user):
+#     return response.forbidden("Only admin can remove roles")
 
-  if current_user.id == user_id:
-    return response.error(
-      status=RestStatus.bad_request_400,
-      meta=_meta("remove_role", "Admin cannot remove their own role"),
-      data=None,
-    )
+#   if current_user.id == user_id:
+#     return response.error(
+#       status=RestStatus.bad_request_400,
+#       meta=_meta("remove_role", "Admin cannot remove their own role"),
+#       data=None,
+#     )
 
-  try:
-    user = crud_remove_role_from_user(db, user_id, role_request.role_name)
-    return response.success(
-      status=RestStatus.ok_200,
-      meta=_meta(
-        "remove_role", f"Role '{role_request.role_name}' removed from user {user_id}"),
-      data={"user_id": user.id, "roles": [r.name for r in user.roles]},
-    )
-  except ValueError as e:
-    return response.error(
-      status=RestStatus.bad_request_400,
-      meta=_meta("remove_role", str(e)),
-      data=None,
-    )
+#   try:
+#     user = crud_remove_role_from_user(db, user_id, role_request.role_name)
+#     return response.success(
+#       status=RestStatus.ok_200,
+#       meta=_meta(
+#         "remove_role", f"Role '{role_request.role_name}' removed from user {user_id}"),
+#       data={"user_id": user.id, "roles": [r.name for r in user.roles]},
+#     )
+#   except ValueError as e:
+#     return response.error(
+#       status=RestStatus.bad_request_400,
+#       meta=_meta("remove_role", str(e)),
+#       data=None,
+#     )
 
 
 @router.get("/{role_id}", response_model=None)

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.orm import Session
 from pathlib import Path
 import re
+from datetime import datetime
 from typing import Optional, List
 
 from app.database import get_db
@@ -13,574 +14,459 @@ router = APIRouter(tags=["logs"])
 response = ResponseRest()
 logger = setup_logger(__name__)
 
-# HTML template for logs page
 LOGS_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request Logs - Marketplace API</title>
+    <title>Request Logs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+
+        .sidebar {
             min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            font-size: 0.95em;
-            opacity: 0.9;
-        }
-        
-        .controls {
-            padding: 25px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e0e0e0;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            align-items: end;
-        }
-        
-        .control-group {
+            background: #1a1d23;
+            width: 260px;
+            flex-shrink: 0;
             display: flex;
             flex-direction: column;
-            gap: 5px;
         }
-        
-        .control-group label {
-            font-size: 0.85em;
-            font-weight: 600;
-            color: #333;
+        .sidebar-brand {
+            padding: 1.5rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        
-        .control-group input,
-        .control-group select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.9em;
+        .sidebar-brand h5 { color: #fff; font-weight: 700; margin: 0; font-size: 1rem; }
+        .sidebar-brand p  { color: rgba(255,255,255,0.4); font-size: 0.75rem; margin: 0.25rem 0 0; }
+
+        .sidebar-section-title {
+            color: rgba(255,255,255,0.35);
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 1rem 1.25rem 0.4rem;
         }
-        
-        .control-group input:focus,
-        .control-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+
+        .file-list { list-style: none; padding: 0 0.5rem; margin: 0; overflow-y: auto; flex: 1; }
+        .file-list li a {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.5rem 0.75rem; border-radius: 6px;
+            color: rgba(255,255,255,0.65); text-decoration: none;
+            font-size: 0.85rem; transition: background 0.15s, color 0.15s;
         }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
+        .file-list li a:hover  { background: rgba(255,255,255,0.07); color: #fff; }
+        .file-list li a.active { background: #4f6ef7; color: #fff; font-weight: 600; }
+        .file-list li a .badge-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: rgba(255,255,255,0.25); flex-shrink: 0;
         }
-        
-        button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
+        .file-list li a.active .badge-dot { background: rgba(255,255,255,0.7); }
+
+        .main-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+        .topbar {
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: 0.875rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
         }
-        
-        .btn-filter {
-            background: #667eea;
-            color: white;
+        .topbar h4    { margin: 0; font-size: 1rem; font-weight: 700; color: #111; }
+        .topbar .selected-date {
+            font-size: 0.8rem; color: #6b7280;
+            background: #f3f4f6; padding: 0.2rem 0.6rem; border-radius: 20px;
         }
-        
-        .btn-filter:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+
+        .stat-card { background: #fff; border-radius: 10px; padding: 1rem 1.25rem; border: 1px solid #e5e7eb; }
+        .stat-card .stat-value { font-size: 1.6rem; font-weight: 800; color: #111; line-height: 1; }
+        .stat-card .stat-label { font-size: 0.75rem; color: #9ca3af; margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-card .stat-icon  { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+
+        .filters-bar { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1rem 1.25rem; }
+
+        .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; flex: 1; }
+
+        .table thead th {
+            background: #f9fafb; font-size: 0.72rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280;
+            border-bottom: 1px solid #e5e7eb; padding: 0.75rem 1rem; white-space: nowrap;
         }
-        
-        .btn-refresh {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-refresh:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-        }
-        
-        .btn-reset {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-reset:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
-        }
-        
-        .content {
-            padding: 25px;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        
-        .stat-card .value {
-            font-size: 1.8em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-card .label {
-            font-size: 0.85em;
-            opacity: 0.9;
-        }
-        
-        .logs-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-        }
-        
-        .logs-table thead {
-            background: #f8f9fa;
-            border-bottom: 2px solid #667eea;
-        }
-        
-        .logs-table th {
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .logs-table td {
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .logs-table tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .status {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: 600;
-            display: inline-block;
-            font-size: 0.85em;
-        }
-        
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .status.redirect {
-            background: #cce5ff;
-            color: #004085;
-        }
-        
-        .status.warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .method {
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            display: inline-block;
-        }
-        
-        .method.get {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-        
-        .method.post {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .method.put {
-            background: #e7d4f5;
-            color: #5a2d82;
-        }
-        
-        .method.delete {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .method.patch {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .time-slow {
-            color: #dc3545;
-            font-weight: 600;
-        }
-        
-        .time-normal {
-            color: #28a745;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-            font-size: 1.1em;
-        }
-        
-        .timestamp {
-            color: #666;
-            font-size: 0.85em;
-        }
+        .table tbody td { padding: 0.65rem 1rem; font-size: 0.85rem; color: #374151; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+        .table tbody tr:last-child td { border-bottom: none; }
+        .table tbody tr:hover td { background: #f9fafb; }
+
+        .badge-method { font-size: 0.7rem; font-weight: 700; padding: 0.25em 0.55em; border-radius: 4px; letter-spacing: 0.03em; }
+        .method-get    { background: #dbeafe; color: #1d4ed8; }
+        .method-post   { background: #fef3c7; color: #92400e; }
+        .method-put    { background: #ede9fe; color: #5b21b6; }
+        .method-delete { background: #fee2e2; color: #991b1b; }
+        .method-patch  { background: #d1fae5; color: #065f46; }
+
+        .badge-status { font-size: 0.75rem; font-weight: 600; padding: 0.25em 0.6em; border-radius: 4px; }
+        .status-2xx { background: #d1fae5; color: #065f46; }
+        .status-3xx { background: #dbeafe; color: #1d4ed8; }
+        .status-4xx { background: #fef3c7; color: #92400e; }
+        .status-5xx { background: #fee2e2; color: #991b1b; }
+
+        .time-slow   { color: #dc2626; font-weight: 600; }
+        .time-normal { color: #16a34a; }
+
+        .no-data-state    { padding: 3rem; text-align: center; color: #9ca3af; }
+        .spinner-overlay  { padding: 3rem; text-align: center; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>📋 Request Logs</h1>
-            <p>Monitor and filter all API requests</p>
+<div class="d-flex" style="min-height:100vh;">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <h5><i class="bi bi-journal-text me-2"></i>Request Logs</h5>
+            <p>Marketplace API</p>
         </div>
-        
-        <div class="controls">
-            <div class="control-group">
-                <label>Status Code</label>
-                <select id="statusFilter">
-                    <option value="">All</option>
-                    <option value="2">2xx - Success</option>
-                    <option value="3">3xx - Redirect</option>
-                    <option value="4">4xx - Client Error</option>
-                    <option value="5">5xx - Server Error</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label>Method</label>
-                <select id="methodFilter">
-                    <option value="">All</option>
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="DELETE">DELETE</option>
-                    <option value="PATCH">PATCH</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label>Path (substring)</label>
-                <input type="text" id="pathFilter" placeholder="/api/users">
-            </div>
-            
-            <div class="control-group">
-                <label>Min Time (seconds)</label>
-                <input type="number" id="timeFilter" min="0" step="0.1" placeholder="0">
-            </div>
-            
-            <div class="control-group">
-                <label>Limit</label>
-                <input type="number" id="limitFilter" value="50" min="1" max="500">
-            </div>
-            
-            <div class="button-group">
-                <button class="btn-filter" onclick="applyFilters()">🔍 Filter</button>
-                <button class="btn-refresh" onclick="loadLogs()">🔄 Refresh</button>
-                <button class="btn-reset" onclick="resetFilters()">↺ Reset</button>
+        <div class="sidebar-section-title">Log Files</div>
+        <ul class="file-list" id="fileList">
+            <li><a href="#"><i class="bi bi-hourglass-split me-1"></i> Loading...</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main -->
+    <div class="main-content">
+        <div class="topbar">
+            <h4><i class="bi bi-activity me-2 text-primary"></i>Dashboard</h4>
+            <span class="selected-date" id="selectedDateLabel">No file selected</span>
+            <div class="ms-auto">
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadFileLogs()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                </button>
             </div>
         </div>
-        
-        <div class="content">
-            <div id="stats" class="stats"></div>
-            
-            <div id="loadingContainer" class="loading" style="display: none;">
-                <div class="spinner"></div>
-                <p>Loading logs...</p>
+
+        <div class="p-3 d-flex flex-column gap-3" style="overflow-y:auto; flex:1;">
+
+            <!-- Stats -->
+            <div class="row g-3">
+                <div class="col-6 col-xl-3">
+                    <div class="stat-card d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-arrow-left-right"></i></div>
+                        <div><div class="stat-value" id="statTotal">—</div><div class="stat-label">Requests</div></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="stat-card d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-speedometer2"></i></div>
+                        <div><div class="stat-value" id="statAvg">—</div><div class="stat-label">Avg Time</div></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="stat-card d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-stopwatch"></i></div>
+                        <div><div class="stat-value" id="statMax">—</div><div class="stat-label">Max Time</div></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="stat-card d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div><div class="stat-value" id="statErrors">—</div><div class="stat-label">Errors</div></div>
+                    </div>
+                </div>
             </div>
-            
-            <div id="noData" class="no-data" style="display: none;">
-                No logs found matching the criteria
+
+            <!-- Filters -->
+            <div class="filters-bar">
+                <div class="row g-2 align-items-end">
+                    <div class="col-6 col-md-2">
+                        <label class="form-label fw-semibold" style="font-size:.8rem;">Status</label>
+                        <select class="form-select form-select-sm" id="statusFilter">
+                            <option value="">All</option>
+                            <option value="2">2xx</option>
+                            <option value="3">3xx</option>
+                            <option value="4">4xx</option>
+                            <option value="5">5xx</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label fw-semibold" style="font-size:.8rem;">Method</label>
+                        <select class="form-select form-select-sm" id="methodFilter">
+                            <option value="">All</option>
+                            <option>GET</option><option>POST</option>
+                            <option>PUT</option><option>DELETE</option><option>PATCH</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-semibold" style="font-size:.8rem;">Path</label>
+                        <input type="text" class="form-control form-control-sm" id="pathFilter" placeholder="/api/...">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label fw-semibold" style="font-size:.8rem;">Min Time (s)</label>
+                        <input type="number" class="form-control form-control-sm" id="timeFilter" min="0" step="0.1" placeholder="0">
+                    </div>
+                    <div class="col-6 col-md-1">
+                        <label class="form-label fw-semibold" style="font-size:.8rem;">Limit</label>
+                        <input type="number" class="form-control form-control-sm" id="limitFilter" value="100" min="1" max="500">
+                    </div>
+                    <div class="col-12 col-md-2 d-flex gap-2">
+                        <button class="btn btn-sm btn-primary w-100" onclick="applyFilters()">
+                            <i class="bi bi-funnel me-1"></i>Apply
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
-            
-            <table id="logsTable" class="logs-table" style="display: none;">
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Client</th>
-                        <th>Method</th>
-                        <th>Path</th>
-                        <th>Status</th>
-                        <th>Time (ms)</th>
-                    </tr>
-                </thead>
-                <tbody id="logsTableBody">
-                </tbody>
-            </table>
+
+            <!-- Table -->
+            <div class="table-card">
+                <div id="spinnerContainer" class="spinner-overlay" style="display:none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted small">Loading logs...</p>
+                </div>
+                <div id="noDataState" class="no-data-state">
+                    <i class="bi bi-folder2-open" style="font-size:2rem;"></i>
+                    <p class="mt-2 mb-0">Select a log file from the sidebar</p>
+                </div>
+                <div id="tableWrapper" style="display:none; overflow-x:auto;">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th><th>Client</th><th>Method</th>
+                                <th>Path</th><th>Status</th><th>Time (ms)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
-    
-    <script>
-        const logCache = {
-            entries: [],
-            stats: {}
-        };
-        
-        function formatStatus(statusCode) {
-            if (statusCode < 300) return 'success';
-            if (statusCode < 400) return 'redirect';
-            if (statusCode < 500) return 'warning';
-            return 'error';
-        }
-        
-        function formatMethod(method) {
-            return method.toLowerCase();
-        }
-        
-        function formatTime(seconds) {
-            return (seconds * 1000).toFixed(0);
-        }
-        
-        function loadLogs() {
-            const loadingContainer = document.getElementById('loadingContainer');
-            loadingContainer.style.display = 'block';
-            
-            const limit = document.getElementById('limitFilter').value || 50;
-            
-            fetch(`/logs/api/data?limit=${limit}`)
-                .then(response => response.json())
-                .then(data => {
-                    logCache.entries = data.entries || [];
-                    logCache.stats = data.stats || {};
-                    renderLogs();
-                    renderStats();
-                    loadingContainer.style.display = 'none';
-                })
-                .catch(error => {
-                    console.error('Error loading logs:', error);
-                    loadingContainer.style.display = 'none';
-                });
-        }
-        
-        function applyFilters() {
-            const statusFilter = document.getElementById('statusFilter').value;
-            const methodFilter = document.getElementById('methodFilter').value;
-            const pathFilter = document.getElementById('pathFilter').value.toLowerCase();
-            const timeFilter = parseFloat(document.getElementById('timeFilter').value) || 0;
-            
-            const filtered = logCache.entries.filter(entry => {
-                if (statusFilter && !entry.status.toString().startsWith(statusFilter)) return false;
-                if (methodFilter && entry.method !== methodFilter) return false;
-                if (pathFilter && !entry.path.toLowerCase().includes(pathFilter)) return false;
-                if (entry.time < timeFilter) return false;
-                return true;
-            });
-            
-            renderFilteredLogs(filtered);
-        }
-        
-        function resetFilters() {
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('methodFilter').value = '';
-            document.getElementById('pathFilter').value = '';
-            document.getElementById('timeFilter').value = '';
-            document.getElementById('limitFilter').value = '50';
-            renderLogs();
-        }
-        
-        function renderStats() {
-            const statsDiv = document.getElementById('stats');
-            statsDiv.innerHTML = `
-                <div class="stat-card">
-                    <div class="value">${logCache.stats.total_requests || 0}</div>
-                    <div class="label">Total Requests</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${(logCache.stats.avg_time || 0).toFixed(3)}s</div>
-                    <div class="label">Avg Time</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${(logCache.stats.max_time || 0).toFixed(3)}s</div>
-                    <div class="label">Max Time</div>
-                </div>
-                <div class="stat-card">
-                    <div class="value">${logCache.stats.errors || 0}</div>
-                    <div class="label">Errors</div>
-                </div>
-            `;
-        }
-        
-        function renderFilteredLogs(entries) {
-            if (entries.length === 0) {
-                document.getElementById('logsTable').style.display = 'none';
-                document.getElementById('noData').style.display = 'block';
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let logCache  = { entries: [], stats: {} };
+    let selectedDate = null;
+
+    async function loadFileList() {
+        try {
+            const data = await fetch('/logs/api/files').then(r => r.json());
+            const list = document.getElementById('fileList');
+            list.innerHTML = '';
+
+            if (!data.files || !data.files.length) {
+                list.innerHTML = '<li><span class="px-3 text-secondary small">No log files found</span></li>';
                 return;
             }
-            
-            const tbody = document.getElementById('logsTableBody');
-            tbody.innerHTML = entries.map(entry => `
-                <tr>
-                    <td><span class="timestamp">${entry.timestamp}</span></td>
-                    <td>${entry.client}</td>
-                    <td><span class="method ${formatMethod(entry.method)}">${entry.method}</span></td>
-                    <td>${entry.path}</td>
-                    <td><span class="status ${formatStatus(entry.status)}">${entry.status} ${entry.status_text}</span></td>
-                    <td><span class="${entry.time > 1 ? 'time-slow' : 'time-normal'}">${formatTime(entry.time)}</span></td>
-                </tr>
-            `).join('');
-            
-            document.getElementById('logsTable').style.display = 'table';
-            document.getElementById('noData').style.display = 'none';
+
+            data.files.forEach((file, idx) => {
+                const li = document.createElement('li');
+                const a  = document.createElement('a');
+                a.href = '#';
+                a.dataset.date = file.date;
+                a.innerHTML = `
+                    <span class="badge-dot"></span>
+                    <span class="flex-grow-1">${file.label}</span>
+                    ${file.is_today ? '<span class="badge bg-primary bg-opacity-25 text-primary" style="font-size:.65rem;">today</span>' : ''}
+                `;
+                a.addEventListener('click', e => {
+                    e.preventDefault();
+                    document.querySelectorAll('.file-list a').forEach(el => el.classList.remove('active'));
+                    a.classList.add('active');
+                    selectedDate = file.date;
+                    document.getElementById('selectedDateLabel').textContent = file.label;
+                    loadFileLogs();
+                });
+                li.appendChild(a);
+                list.appendChild(li);
+
+                if (file.is_today || (idx === 0 && !data.files.some(f => f.is_today))) {
+                    a.click();
+                }
+            });
+        } catch (err) { console.error('Failed to load file list', err); }
+    }
+
+    async function loadFileLogs() {
+        if (!selectedDate) return;
+        document.getElementById('spinnerContainer').style.display = 'block';
+        document.getElementById('tableWrapper').style.display     = 'none';
+        document.getElementById('noDataState').style.display      = 'none';
+
+        const limit = document.getElementById('limitFilter').value || 100;
+        try {
+            const data = await fetch(`/logs/api/data?date=${selectedDate}&limit=${limit}`).then(r => r.json());
+            logCache.entries = data.entries || [];
+            logCache.stats   = data.stats   || {};
+            renderStats();
+            renderLogs(logCache.entries);
+        } catch (err) { console.error('Error loading logs:', err); }
+        finally { document.getElementById('spinnerContainer').style.display = 'none'; }
+    }
+
+    function applyFilters() {
+        const sF = document.getElementById('statusFilter').value;
+        const mF = document.getElementById('methodFilter').value;
+        const pF = document.getElementById('pathFilter').value.toLowerCase();
+        const tF = parseFloat(document.getElementById('timeFilter').value) || 0;
+
+        renderLogs(logCache.entries.filter(e => {
+            if (sF && !e.status.toString().startsWith(sF)) return false;
+            if (mF && e.method !== mF) return false;
+            if (pF && !e.path.toLowerCase().includes(pF)) return false;
+            if (e.time < tF) return false;
+            return true;
+        }));
+    }
+
+    function resetFilters() {
+        ['statusFilter','methodFilter','pathFilter','timeFilter'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('limitFilter').value = '100';
+        renderLogs(logCache.entries);
+    }
+
+    function renderStats() {
+        const s = logCache.stats;
+        document.getElementById('statTotal').textContent  = s.total_requests || 0;
+        document.getElementById('statAvg').textContent    = ((s.avg_time || 0) * 1000).toFixed(0) + 'ms';
+        document.getElementById('statMax').textContent    = ((s.max_time || 0) * 1000).toFixed(0) + 'ms';
+        document.getElementById('statErrors').textContent = s.errors || 0;
+    }
+
+    function renderLogs(entries) {
+        const wrapper = document.getElementById('tableWrapper');
+        const noData  = document.getElementById('noDataState');
+
+        if (!entries || !entries.length) {
+            wrapper.style.display = 'none';
+            noData.style.display  = 'block';
+            noData.innerHTML = '<i class="bi bi-search" style="font-size:2rem;"></i><p class="mt-2 mb-0">No entries match the current filters</p>';
+            return;
         }
-        
-        function renderLogs() {
-            renderFilteredLogs(logCache.entries);
-        }
-        
-        // Load logs on page load
-        document.addEventListener('DOMContentLoaded', loadLogs);
-    </script>
+
+        document.getElementById('logsTableBody').innerHTML = entries.map(e => {
+            const mClass = 'method-' + e.method.toLowerCase();
+            const sClass = e.status < 300 ? 'status-2xx' : e.status < 400 ? 'status-3xx' : e.status < 500 ? 'status-4xx' : 'status-5xx';
+            return `
+            <tr>
+                <td class="text-muted" style="font-size:.8rem;white-space:nowrap;">${e.timestamp}</td>
+                <td style="font-size:.8rem;">${e.client}</td>
+                <td><span class="badge-method ${mClass}">${e.method}</span></td>
+                <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${e.path}">${e.path}</td>
+                <td><span class="badge-status ${sClass}">${e.status} ${e.status_text}</span></td>
+                <td><span class="${e.time > 1 ? 'time-slow' : 'time-normal'}">${(e.time * 1000).toFixed(0)}</span></td>
+            </tr>`;
+        }).join('');
+
+        wrapper.style.display = 'block';
+        noData.style.display  = 'none';
+    }
+
+    loadFileList();
+</script>
 </body>
 </html>
 """
 
 
 def parse_log_line(line: str) -> Optional[dict]:
-  """Parse a log line and extract information."""
-  pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \| (\w+) \| (\w+) \| (.+?) - (\w+) (.+?) - Status: (\d{3}) (.+?) - Time: ([\d.]+)s"
-
+  pattern = (
+    r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+\|\s+(\w+)\s+\|\s+(\w+)\s+\|"
+    r"\s+(.+?)\s+-\s+(\w+)\s+(.+?)\s+-\s+Status:\s+(\d{3})\s+(.+?)\s+-\s+Time:\s+([\d.]+)s"
+  )
   match = re.match(pattern, line)
   if not match:
     return None
-
   timestamp, level, logger_name, client, method, path, status, status_text, time_taken = match.groups()
-
   return {
-      "timestamp": timestamp,
-      "level": level,
-      "client": client,
-      "method": method,
-      "path": path,
-      "status": int(status),
-      "status_text": status_text,
-      "time": float(time_taken),
+    "timestamp": timestamp,
+    "level": level,
+    "client": client,
+    "method": method,
+    "path": path,
+    "status": int(status),
+    "status_text": status_text,
+    "time": float(time_taken),
   }
 
 
+def get_log_files() -> List[dict]:
+  logs_dir = Path("logs")
+  if not logs_dir.exists():
+    return []
+  today = datetime.now().strftime("%Y-%m-%d")
+  files = []
+  for f in sorted(logs_dir.glob("requests.*.log"), reverse=True):
+    match = re.match(r"requests\.(\d{4}-\d{2}-\d{2})\.log$", f.name)
+    if not match:
+      continue
+    date_str = match.group(1)
+    files.append({
+      "filename": f.name,
+      "date": date_str,
+      "label": date_str,
+      "is_today": date_str == today,
+    })
+  return files
+
+
+def resolve_log_file(date: Optional[str]) -> Optional[Path]:
+  logs_dir = Path("logs")
+  if date:
+    candidate = logs_dir / f"requests.{date}.log"
+    return candidate if candidate.exists() else None
+  today = datetime.now().strftime("%Y-%m-%d")
+  return logs_dir / f"requests.{today}.log"
+
+
 def is_admin(request: Request) -> bool:
-  """Check if user is admin."""
   if not hasattr(request.state, "user"):
     return False
-
   user_data = request.state.user
   roles = user_data.get("roles", [])
-  return "ADMIN" in roles or any(role.get("name") == "ADMIN" for role in roles if isinstance(role, dict))
+  return "ADMIN" in roles or any(
+      role.get("name") == "ADMIN" for role in roles if isinstance(role, dict)
+  )
 
 
 @router.get("/logs", include_in_schema=False)
 async def logs_page(request: Request):
-  """Render logs viewer page (HTML)."""
   if not is_admin(request):
     raise HTTPException(status_code=403, detail="Only admins can access logs")
-
   from fastapi.responses import HTMLResponse
   return HTMLResponse(content=LOGS_HTML_TEMPLATE)
 
 
+@router.get("/logs/api/files")
+async def get_log_file_list(request: Request):
+  if not is_admin(request):
+    raise HTTPException(status_code=403, detail="Only admins can access logs")
+  return {"files": get_log_files()}
+
+
 @router.get("/logs/api/data")
 async def get_logs_data(
-    request: Request,
-    status: Optional[int] = Query(None),
-    method: Optional[str] = Query(None),
-    path: Optional[str] = Query(None),
-    min_time: float = Query(0.0),
-    limit: int = Query(50, ge=1, le=500),
+  request: Request,
+  date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format"),
+  status: Optional[int] = Query(None),
+  method: Optional[str] = Query(None),
+  path: Optional[str] = Query(None),
+  min_time: float = Query(0.0),
+  limit: int = Query(100, ge=1, le=500),
 ):
-  """API endpoint to get logs data in JSON format."""
   if not is_admin(request):
     raise HTTPException(status_code=403, detail="Only admins can access logs")
 
-  log_file = Path("logs/requests.log")
+  empty = {"entries": [], "stats": {"total_requests": 0,
+                                    "avg_time": 0, "max_time": 0, "errors": 0}}
 
-  if not log_file.exists():
-    return {
-        "entries": [],
-        "stats": {
-            "total_requests": 0,
-            "avg_time": 0,
-            "max_time": 0,
-            "errors": 0,
-        }
-    }
+  log_file = resolve_log_file(date)
+  if not log_file or not log_file.exists():
+    return empty
 
   entries = []
   with open(log_file, "r", encoding="utf-8") as f:
@@ -588,8 +474,6 @@ async def get_logs_data(
       entry = parse_log_line(line.strip())
       if not entry:
         continue
-
-      # Apply filters
       if status and entry["status"] != status:
         continue
       if method and entry["method"] != method:
@@ -598,28 +482,23 @@ async def get_logs_data(
         continue
       if entry["time"] < min_time:
         continue
-
       entries.append(entry)
 
-  # Get last N entries
   entries = entries[-limit:]
 
-  # Calculate stats
   if entries:
     error_count = sum(1 for e in entries if e["status"] >= 400)
     avg_time = sum(e["time"] for e in entries) / len(entries)
     max_time = max(e["time"] for e in entries)
   else:
-    error_count = 0
-    avg_time = 0
-    max_time = 0
+    error_count = avg_time = max_time = 0
 
   return {
-      "entries": entries,
-      "stats": {
-          "total_requests": len(entries),
-          "avg_time": avg_time,
-          "max_time": max_time,
-          "errors": error_count,
-      }
+    "entries": entries,
+    "stats": {
+      "total_requests": len(entries),
+      "avg_time": avg_time,
+      "max_time": max_time,
+      "errors": error_count,
+    },
   }

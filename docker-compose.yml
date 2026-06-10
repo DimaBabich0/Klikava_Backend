@@ -51,6 +51,8 @@ services:
 
     volumes:
       - ./app:/app/app
+      - ./static:/app/app/static
+      - ./logs:/app/logs
 
     command: >
       uvicorn app.main:app

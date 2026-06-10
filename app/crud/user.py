@@ -127,10 +127,14 @@ def ban_user(db: Session, db_user: User):
 
 def authenticate_user(
     db: Session,
-    login: str,
+    login_email: str,
     password: str
   ):
-  user_role = get_user_role_by_login(db, login)
+  if "@" in login_email:
+    user_role = get_user_by_email(db, login_email)
+    if user_role:
+      login_email = user_role.user_roles[0].login
+  user_role = get_user_role_by_login(db, login_email)
   if not user_role or user_role.is_deleted() or not user_role.is_active():
     return False, None
 

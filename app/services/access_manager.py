@@ -18,12 +18,16 @@ class AccessManager:
   # Public routes that do not require authentication
   PUBLIC_ROUTES = [
     "/",
-    "/users/login",
-    "/users/register",
-    "/products",
     "/docs",
     "/openapi.json",
     "/health",
+    "/users/login",
+    "/users/register",
+    "/products",
+    "/categories",
+    "/discounts",
+    "/features",
+    "/sellers",
     "/static/product_pictures",
     "/static/user_pictures",
   ]
