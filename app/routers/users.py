@@ -14,10 +14,13 @@ from app.crud import (
   create_user,
   get_user_by_email,
   get_user_by_id,
+  get_user_role_by_user_and_login,
   get_users,
   get_users_count,
   update_user as crud_update_user,
+  update_user_role as crud_update_user_role,
 )
+from app.crud.role import get_role_by_id
 from app.database import get_db
 from app.models import User
 from app.schemas import (
@@ -27,6 +30,7 @@ from app.schemas import (
   UserLogin,
   UserResponse,
   UserUpdate,
+  UserUpdateRole,
 )
 from app.services.access_manager import AccessManager
 from app.services.auth import create_token
@@ -42,6 +46,15 @@ def _meta(action: str, message: str | None = None) -> RestMeta:
 def _serialize_user(user: User) -> dict:
   data = UserResponse.model_validate(user).model_dump(mode="json")
   data["is_active"] = user.is_active()
+
+  primary_user_role = user.get_primary_user_role()
+  if primary_user_role:
+    data["login"] = primary_user_role.login
+    data["status"] = primary_user_role.status
+    data["picture_url"] = primary_user_role.picture_url
+    data["created_at"] = primary_user_role.created_at
+    data["deleted_at"] = primary_user_role.deleted_at
+
   return data
 
 
@@ -288,6 +301,71 @@ def update_user(
   return response.success(
     status=RestStatus.ok_200,
     meta=_meta("update_user", "User updated"),
+    data=_serialize_user(updated_user),
+  )
+
+
+@router.patch("/{user_id}/role", response_model=None)
+def update_user_role(
+  user_id: int,
+  role_data: UserUpdateRole,
+  db: Session = Depends(get_db),
+  current_user: User = Depends(AccessManager.get_current_user),
+):
+  """Update role on a specific user account. Admin only."""
+  if not current_user.is_admin():
+    return response.forbidden("Only admin can update user roles")
+
+  if current_user.id == user_id:
+    return response.error(
+      status=RestStatus.bad_request_400,
+      meta=_meta("update_user_role", "Admin cannot change their own role"),
+      data=None,
+    )
+
+  user = get_user_by_id(db, user_id)
+  if not user:
+    return response.error(
+      status=RestStatus.not_found_404,
+      meta=_meta("update_user_role", "User not found"),
+      data=None,
+    )
+
+  user_role = get_user_role_by_user_and_login(db, user_id, role_data.login)
+  if not user_role or user_role.is_deleted():
+    return response.error(
+      status=RestStatus.not_found_404,
+      meta=_meta("update_user_role", "User role account not found"),
+      data=None,
+    )
+
+  new_role = get_role_by_id(db, role_data.role_id)
+  if not new_role:
+    return response.error(
+      status=RestStatus.not_found_404,
+      meta=_meta("update_user_role", "Role not found"),
+      data=None,
+    )
+
+  if new_role.name == "ADMIN" and current_user.id == user_id:
+    return response.error(
+      status=RestStatus.bad_request_400,
+      meta=_meta("update_user_role", "User cannot change their own role to admin"),
+      data=None,
+    )
+
+  try:
+    updated_user = crud_update_user_role(db, user_role, new_role)
+  except ValueError as e:
+    return response.error(
+      status=RestStatus.bad_request_400,
+      meta=_meta("update_user_role", str(e)),
+      data=None,
+    )
+
+  return response.success(
+    status=RestStatus.ok_200,
+    meta=_meta("update_user_role", "User role updated"),
     data=_serialize_user(updated_user),
   )
 

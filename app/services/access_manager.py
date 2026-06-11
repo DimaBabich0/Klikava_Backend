@@ -17,19 +17,19 @@ class AccessManager:
 
   # Public routes that do not require authentication
   PUBLIC_ROUTES = [
-    "/",
-    "/docs",
-    "/openapi.json",
-    "/health",
-    "/users/login",
-    "/users/register",
-    "/products",
-    "/categories",
-    "/discounts",
-    "/features",
-    "/sellers",
-    "/static/product_pictures",
-    "/static/user_pictures",
+    ("/", ["GET"]),
+    ("/docs", ["GET"]),
+    ("/openapi.json", ["GET"]),
+    ("/health", ["GET"]),
+    ("/users/login", ["POST"]),
+    ("/users/register", ["POST"]),
+    ("/products", ["GET"]),
+    ("/categories", ["GET"]),
+    ("/discounts", ["GET"]),
+    ("/features", ["GET"]),
+    ("/sellers", ["GET"]),
+    ("/static/product_pictures", ["GET"]),
+    ("/static/user_pictures", ["GET"]),
   ]
 
   @staticmethod
@@ -41,10 +41,8 @@ class AccessManager:
       return await call_next(request)
 
     # Check public routes
-    for public_route in AccessManager.PUBLIC_ROUTES:
-      if request.url.path == public_route or (
-        public_route != "/" and request.url.path.startswith(public_route)
-      ):
+    for public_route, methods in AccessManager.PUBLIC_ROUTES:
+      if request.url.path == public_route and request.method in methods:
         return await call_next(request)
 
     # Check token in headers

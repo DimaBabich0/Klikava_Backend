@@ -1,5 +1,5 @@
 from .role import RoleBase, RoleCreate, RoleResponse, AssignRoleRequest, RoleUpdate
-from .user import UserCreate, UserLogin, UserBase, UserResponse, UserUpdate, UserBanRequest
+from .user import UserCreate, UserLogin, UserBase, UserResponse, UserUpdate, UserUpdateRole, UserBanRequest
 from .seller import SellerBase, SellerCreate, SellerResponse
 from .token import TokenResponse
 from .user_delivery_address import (
@@ -12,6 +12,10 @@ from .user_credit_card import (
 )
 from .shipment import (
     ShipmentCreate, ShipmentUpdate, ShipmentResponse,
+)
+from .order import (
+    OrderCreate, OrderUpdate, OrderResponse,
+    OrderItemCreate, OrderItemUpdate, OrderItemResponse,
 )
 from .product import (
     ProductCreate, ProductUpdate, ProductResponse,
@@ -33,7 +37,7 @@ from .feature import (
 
 __all__ = [
     "RoleBase", "RoleCreate", "RoleResponse", "AssignRoleRequest", "RoleUpdate",
-    "UserCreate", "UserLogin", "UserBase", "UserResponse", "UserUpdate", "UserBanRequest",
+    "UserCreate", "UserLogin", "UserBase", "UserResponse", "UserUpdate", "UserUpdateRole", "UserBanRequest",
     "SellerBase", "SellerCreate", "SellerResponse",
     "TokenResponse",
     "UserDeliveryAddressCreate", "UserDeliveryAddressUpdate", "UserDeliveryAddressResponse",

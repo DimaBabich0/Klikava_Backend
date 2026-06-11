@@ -4,7 +4,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from app.services.access_manager import AccessManager
-from app.routers import health_router, user_router, user_delivery_address_router, user_credit_card_router, pictures_router, shipment_router, categories_router, discounts_router, features_router, seller_router, roles_router, product_router, logs_router
+from app.routers import health_router, user_router, user_delivery_address_router, user_credit_card_router, pictures_router, shipment_router, categories_router, discounts_router, features_router, seller_router, roles_router, product_router, logs_router, orders_router
 from sqlalchemy import inspect
 from contextlib import asynccontextmanager
 from app.database import SessionLocal, engine, Base
@@ -102,6 +102,7 @@ app.include_router(user_delivery_address_router)
 app.include_router(user_credit_card_router)
 app.include_router(pictures_router)
 app.include_router(shipment_router)
+app.include_router(orders_router)
 app.include_router(categories_router)
 app.include_router(discounts_router)
 app.include_router(features_router)
@@ -120,13 +121,14 @@ def root():
   return RedirectResponse(url="/docs")
 
 
-def _is_public_openapi_path(path: str) -> bool:
-  for public_route in AccessManager.PUBLIC_ROUTES:
-    if path == public_route or (
-      public_route != "/" and path.startswith(public_route)
-    ):
-      return True
-  return False
+def _is_public_openapi_path(path: str, method: str) -> bool:
+  for public_route, methods in AccessManager.PUBLIC_ROUTES:
+    if method.upper() in methods:
+      if path == public_route or (
+        public_route != "/" and path.startswith(public_route)
+      ):
+        return True
+    return False
 
 
 def custom_openapi():
@@ -148,10 +150,9 @@ def custom_openapi():
   }
 
   for path, path_item in openapi_schema.get("paths", {}).items():
-    if _is_public_openapi_path(path):
-      continue
-
-    for operation in path_item.values():
+    for method, operation in path_item.items():
+      if _is_public_openapi_path(path, method):
+        continue
       if isinstance(operation, dict):
         operation["security"] = [{"BearerAuth": []}]
 

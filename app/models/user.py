@@ -52,3 +52,23 @@ class User(Base):
 
   def is_moderator(self) -> bool:
     return any(role.name == "MODERATOR" for role in self.roles)
+
+  def get_primary_user_role(self):
+    active_user_roles = [
+      user_role for user_role in self.user_roles
+      if not user_role.is_deleted() and user_role.is_active()
+    ]
+    if not active_user_roles:
+      active_user_roles = [
+        user_role for user_role in self.user_roles
+        if not user_role.is_deleted()
+      ]
+    if not active_user_roles:
+      active_user_roles = list(self.user_roles)
+    if not active_user_roles:
+      return None
+    return sorted(active_user_roles, key=lambda user_role: user_role.created_at)[0]
+
+  def get_primary_login(self) -> str | None:
+    primary_user_role = self.get_primary_user_role()
+    return primary_user_role.login if primary_user_role else None

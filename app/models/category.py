@@ -11,7 +11,7 @@ class Category(Base):
   parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
   title = Column(String(100), nullable=False)
   description = Column(Text, nullable=True)
-  order_in_price = Column(Integer, default=1000, nullable=True)
+  order_in_price = Column(Integer, default=9999, nullable=True)
   created_at = Column(DateTime, default=datetime.now(), index=True)
   deleted_at = Column(DateTime, nullable=True)
 

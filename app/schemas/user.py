@@ -36,12 +36,22 @@ class UserUpdate(BaseModel):
   avatar_url: Optional[str] = None
 
 
+class UserUpdateRole(BaseModel):
+  login: str = Field(..., min_length=2, max_length=255)
+  role_id: int
+
+
 class UserBanRequest(BaseModel):
   reason: Optional[str] = None
 
 
 class UserResponse(UserBase):
   id: int
+  login: Optional[str] = None
+  status: Optional[str] = None
+  picture_url: Optional[str] = None
+  created_at: Optional[datetime] = None
+  deleted_at: Optional[datetime] = None
   roles: List[RoleResponse] = []
 
   class Config:

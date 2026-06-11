@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models import User, Role, UserRoles
 from app.schemas import UserCreate, UserUpdate
 from app.services.auth import hash_password, verify_password
@@ -9,7 +9,13 @@ def get_user_by_id(db: Session, user_id: int):
 
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
-  return db.query(User).offset(skip).limit(limit).all()
+  return (
+    db.query(User)
+    .options(joinedload(User.user_roles))
+    .offset(skip)
+    .limit(limit)
+    .all()
+  )
 
 
 def get_users_count(db: Session):
@@ -33,6 +39,13 @@ def get_user_by_login(db: Session, login: str):
 
 def get_user_role_by_login(db: Session, login: str):
   return db.query(UserRoles).filter(UserRoles.login == login).first()
+
+
+def get_user_role_by_user_and_login(db: Session, user_id: int, login: str):
+  return db.query(UserRoles).filter(
+    UserRoles.user_id == user_id,
+    UserRoles.login == login,
+  ).first()
 
 
 def create_user(db: Session, user: UserCreate):
@@ -113,6 +126,38 @@ def update_user(db: Session, db_user: User, user_data: UserUpdate):
   db.commit()
   db.refresh(db_user)
   return db_user
+
+
+def update_user_role(db: Session, user_role: UserRoles, new_role: Role):
+  if user_role.is_deleted():
+    raise ValueError("User role account not found")
+
+  if user_role.role_id == new_role.id:
+    db.refresh(user_role.user)
+    return user_role.user
+
+  existing_user_role = db.query(UserRoles).filter(
+    UserRoles.user_id == user_role.user_id,
+    UserRoles.role_id == new_role.id,
+  ).first()
+  if existing_user_role and not existing_user_role.is_deleted():
+    raise ValueError("User already has this role")
+
+  updated_user_role = UserRoles(
+    user_id=user_role.user_id,
+    role_id=new_role.id,
+    login=user_role.login,
+    password_hash=user_role.password_hash,
+    password_salt=user_role.password_salt,
+    status=user_role.status,
+    picture_url=user_role.picture_url,
+    created_at=user_role.created_at,
+  )
+  db.delete(user_role)
+  db.add(updated_user_role)
+  db.commit()
+  db.refresh(updated_user_role.user)
+  return updated_user_role.user
 
 
 def ban_user(db: Session, db_user: User):
