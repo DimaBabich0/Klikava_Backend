@@ -28,8 +28,12 @@ class AccessManager:
     ("/discounts", ["GET"]),
     ("/features", ["GET"]),
     ("/sellers", ["GET"]),
-    ("/static/product_pictures", ["GET"]),
-    ("/static/user_pictures", ["GET"]),
+    ("/favicon.ico", ["GET"]),
+  ]
+
+  STATIC_ROUTES = [
+    "/static/user_pictures/",
+    "/static/product_pictures/",
   ]
 
   @staticmethod
@@ -40,10 +44,12 @@ class AccessManager:
     if DEBUG_MODE == "true":
       return await call_next(request)
 
+    path = request.url.path
+    method = request.method
+
     # Check public routes
-    for public_route, methods in AccessManager.PUBLIC_ROUTES:
-      if request.url.path == public_route and request.method in methods:
-        return await call_next(request)
+    if AccessManager.is_public_route(path, method):
+      return await call_next(request)
 
     # Check token in headers
     token = request.headers.get("Authorization")
@@ -67,6 +73,18 @@ class AccessManager:
     # Pass to the controller
     next_response = await call_next(request)
     return next_response
+
+  @staticmethod
+  def is_public_route(path: str, method: str) -> bool:
+    for route, methods in AccessManager.PUBLIC_ROUTES:
+      if path == route and method in methods:
+        return True
+
+    for route in AccessManager.STATIC_ROUTES:
+      if path.startswith(route):
+        return True
+
+    return False
 
   @staticmethod
   def validate_token(token: str) -> dict:
