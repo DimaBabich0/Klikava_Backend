@@ -9,7 +9,7 @@ from .product import Product
 from .product_view import ProductView
 from .product_variant import ProductVariant
 from .product_version import ProductVersion
-from .picture import ProductPicture
+from .product_picture import ProductPicture
 from .feature import Feature
 from .product_feature import ProductFeature
 from .review import Review
@@ -21,6 +21,7 @@ from .payment import Payment
 from .shipment import Shipment
 from .user_credit_card import UserCreditCard
 from .user_delivery_address import UserDeliveryAddress
+from .review_picture import ReviewPicture
 
 
-__all__ = ["Category", "DiscountItem", "Discount", "Feature", "OrderItem", "Order", "Payment", "ProductFeature", "ProductVariant", "ProductVersion", "ProductPicture", "ProductView", "Product", "Review", "Role", "User", "Seller", "UserRoles", "Shipment", "UserCreditCard", "UserDeliveryAddress"]
+__all__ = ["Category", "DiscountItem", "Discount", "Feature", "OrderItem", "Order", "Payment", "ProductFeature", "ProductVariant", "ProductVersion", "ProductPicture", "ProductView", "Product", "Review", "Role", "User", "Seller", "UserRoles", "Shipment", "UserCreditCard", "UserDeliveryAddress", "ReviewPicture"]

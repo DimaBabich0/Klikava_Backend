@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from app.models.product_picture import ProductPicture
 from app.services.auth import hash_password
 from app.database import SessionLocal, engine
 from app.models import (
@@ -764,6 +765,111 @@ def seed_products():
     db.close()
 
 
+def seed_product_pictures():
+  """Seed product pictures for demo products."""
+  db = SessionLocal()
+
+  DEMO_PICTURES_BASE = "/static/product_pictures/demo"
+
+  # SKU -> list of filenames (in sort_order)
+  pictures_map = {
+    "DEMO-001": ["iphone-15-1.webp", "iphone-15-2.webp", "iphone-15-3.webp"],
+    "DEMO-002": ["galaxy-s24-1.webp", "galaxy-s24-2.webp", "galaxy-s24-3.webp"],
+    "DEMO-003": ["pixel-8-1.webp", "pixel-8-2.webp", "pixel-8-3.webp"],
+    "DEMO-004": ["xiaomi-14-1.webp", "xiaomi-14-2.webp", "xiaomi-14-3.webp"],
+    "DEMO-005": ["rugged-satellite-phone.webp"],
+    "DEMO-006": ["fast-charger-65w.webp"],
+    "DEMO-007": ["magnetic-power-bank.webp"],
+    "DEMO-008": ["oled-phone-screen.webp"],
+    "DEMO-009": ["travel-sim-europe.webp"],
+    "DEMO-010": ["macbook-air-13.webp"],
+    "DEMO-011": ["thinkpad-e14.webp"],
+    "DEMO-012": ["zenbook-14-1.webp", "zenbook-14-2.webp"],
+    "DEMO-013": ["ipad-air-1.webp", "ipad-air-2.webp"],
+    "DEMO-014": ["galaxy-tab-s9-1.webp", "galaxy-tab-s9-2.webp", "galaxy-tab-s9-3.webp"],
+    "DEMO-015": ["desktop-aio.webp"],
+    "DEMO-016": ["router-ax3000.webp"],
+    "DEMO-017": ["nas-storage.webp"],
+    "DEMO-018": ["ram-32gb.webp"],
+    "DEMO-019": ["desktop-aio.webp"],
+    "DEMO-020": ["sony-earbuds-pro.webp", "sony-earbuds-pro-1.webp"],
+    "DEMO-021": ["lg-tv.webp"],
+    "DEMO-022": ["robot-vacuum.webp"],
+    "DEMO-023": ["kitchen-blender-1.webp", "kitchen-blender-2.webp", "kitchen-blender-3.webp"],
+    "DEMO-024": ["air-fryer-philips-1.webp", "air-fryer-philips-2.webp", "air-fryer-philips-3.webp", "air-fryer-philips-4.webp"],
+    "DEMO-025": ["drill-set.webp"],
+    "DEMO-026": ["laser-distance-meter-1.webp", "laser-distance-meter-2.webp"],
+    "DEMO-027": ["smart-lock-door-1.webp", "smart-lock-door-2.webp"],
+    "DEMO-028": ["dash-camera-4k.webp"],
+    "DEMO-029": ["car-vacuum-cleaner.webp"],
+    "DEMO-030": ["office-chair.webp"],
+    "DEMO-031": ["standing-desk.webp"],
+    "DEMO-032": ["garden-tool-kit.webp"],
+    "DEMO-033": ["men-hoodie.webp"],
+    "DEMO-034": ["women-jacket-1.webp", "women-jacket-2.webp"],
+    "DEMO-035": ["shoes-nike-1.webp", "shoes-nike-2.webp"],
+    "DEMO-036": ["belt.webp"],
+    "DEMO-037": ["backpack-35l.webp"],
+    "DEMO-038": ["yoga-mat.webp"],
+    "DEMO-039": ["dumbbell-set-20kg.webp"],
+    "DEMO-040": ["baby-stroller.webp"],
+    "DEMO-041": ["baby-monitor.webp"],
+    "DEMO-042": ["train-set.webp"],
+    "DEMO-043": ["rc-car-monster.webp"],
+    "DEMO-044": ["electric-toothbrush-oral.webp"],
+    "DEMO-045": ["vitamin-complex.webp"],
+    "DEMO-046": ["cat-food.webp"],
+    "DEMO-047": ["dog-harness-reflective.webp"],
+    "DEMO-048": ["coffee-beans.webp"],
+    "DEMO-049": ["olive-oil.webp"],
+    "DEMO-050": ["wireless-mouse.webp"],
+  }
+
+  try:
+    variant_by_sku = {
+      v.sku_code: v
+      for v in db.query(ProductVariant).filter(
+        ProductVariant.sku_code.like("DEMO-%")
+      ).all()
+    }
+
+    seeded_count = 0
+    for sku, filenames in pictures_map.items():
+      variant = variant_by_sku.get(sku)
+      if not variant:
+        print(f"  WARNING: variant {sku} not found, skipping")
+        continue
+
+      version_id = variant.product_version_id
+
+      existing = db.query(ProductPicture).filter(
+        ProductPicture.product_version_id == version_id
+      ).first()
+      if existing:
+        continue
+
+      for sort_order, filename in enumerate(filenames):
+        file_url = f"{DEMO_PICTURES_BASE}/{filename}"
+        db.add(ProductPicture(
+          product_version_id=version_id,
+          file_url=file_url,
+          original_url=file_url,
+          preview_url=file_url,
+          thumbnail_url=file_url,
+          sort_order=sort_order,
+        ))
+        seeded_count += 1
+
+    db.commit()
+    print(f"--- Seeded {seeded_count} product pictures successfully ---")
+
+  except Exception as e:
+    db.rollback()
+    print(f"--- Error seeding product pictures: {e} ---")
+    raise
+  finally:
+    db.close()
+
 def seed_discounts():
   """Seed discounts and discount items linked to product variants."""
   db = SessionLocal()
@@ -1026,6 +1132,7 @@ def seed_tables():
   seed_categories()
   seed_features()
   seed_products()
+  seed_product_pictures()
   seed_discounts()
   seed_cart_orders()
   seed_product_views()

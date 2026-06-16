@@ -15,12 +15,15 @@ from app.models import (
   ProductVersion,
   ProductView,
   Review,
+  ReviewPicture,
 )
+from app.models.review_picture import ReviewPicture
 from app.schemas.product import PRODUCT_STATUSES
 
 
 REVIEW_EDIT_WINDOW = timedelta(days=7)
-COMPLETED_ORDER_STATUSES = {"completed", "delivered", "paid", "finished", "COMPLETED", "DELIVERED", "PAID", "FINISHED"}
+COMPLETED_ORDER_STATUSES = {"completed", "delivered", "paid",
+                            "finished", "COMPLETED", "DELIVERED", "PAID", "FINISHED"}
 
 
 def _now():
@@ -68,7 +71,8 @@ def _create_feature_rows(db: Session, variant: ProductVariant, features: list):
 
 def _create_variant_rows(db: Session, version: ProductVersion, variants: list):
   for variant_data in variants or []:
-    payload = variant_data if isinstance(variant_data, dict) else variant_data.model_dump()
+    payload = variant_data if isinstance(
+      variant_data, dict) else variant_data.model_dump()
     sku_code = payload["sku_code"]
     if db.query(ProductVariant).filter(
       ProductVariant.sku_code == sku_code,
@@ -89,7 +93,8 @@ def _create_variant_rows(db: Session, version: ProductVersion, variants: list):
 
 def _create_picture_rows(db: Session, version: ProductVersion, pictures: list):
   for picture_data in pictures or []:
-    payload = picture_data if isinstance(picture_data, dict) else picture_data.model_dump()
+    payload = picture_data if isinstance(
+      picture_data, dict) else picture_data.model_dump()
     original_url = payload.get("original_url") or payload.get("file_url")
     db.add(
       ProductPicture(
@@ -101,6 +106,21 @@ def _create_picture_rows(db: Session, version: ProductVersion, pictures: list):
         sort_order=payload.get("sort_order", 0),
       )
     )
+
+
+def _create_review_pictures(db: Session, review_id: int, pictures: list):
+  for picture_data in pictures:
+    payload = picture_data if isinstance(
+      picture_data, dict) else picture_data.model_dump()
+    original_url = payload.get("original_url") or payload.get("file_url")
+    db.add(ReviewPicture(
+      review_id=review_id,
+      file_url=payload.get("file_url") or original_url,
+      original_url=original_url,
+      preview_url=payload.get("preview_url"),
+      thumbnail_url=payload.get("thumbnail_url"),
+      sort_order=payload.get("sort_order", 0),
+    ))
 
 
 def _create_version(
@@ -170,9 +190,11 @@ def create_product(
 
 
 def get_product_by_id(db: Session, product_id: int, public_only: bool = False):
-  query = db.query(Product).filter(Product.id == product_id, Product.deleted_at == None)
+  query = db.query(Product).filter(
+    Product.id == product_id, Product.deleted_at == None)
   if public_only:
-    query = query.filter(Product.status == "APPROVED", Product.current_version_id != None)
+    query = query.filter(Product.status == "APPROVED",
+                         Product.current_version_id != None)
   return query.first()
 
 
@@ -185,7 +207,8 @@ def get_product_by_slug(db: Session, slug: str, public_only: bool = False):
     .filter(Product.deleted_at == None)
   )
   if public_only:
-    query = query.filter(Product.status == "APPROVED", Product.current_version_id == ProductVersion.id)
+    query = query.filter(Product.status == "APPROVED",
+                         Product.current_version_id == ProductVersion.id)
   return query.first()
 
 
@@ -351,20 +374,27 @@ def create_product_revision(db: Session, product: Product, data: dict):
   if not source:
     required = ("category_id", "title", "slug")
     if any(data.get(field) is None for field in required):
-      raise ValueError("category_id, title and slug are required for the first product version")
+      raise ValueError(
+        "category_id, title and slug are required for the first product version")
 
   title = data.get("title") or source.title
-  slug = data.get("slug") or f"{source.slug}-v{_next_version_number(db, product.id)}"
+  slug = data.get(
+    "slug") or f"{source.slug}-v{_next_version_number(db, product.id)}"
   version = _create_version(
     db,
     product_id=product.id,
-    category_id=data.get("category_id", source.category_id if source else None),
+    category_id=data.get(
+      "category_id", source.category_id if source else None),
     title=title,
-    description=data.get("description", source.description if source else None),
-    delivery_info=data.get("delivery_info", source.delivery_info if source else None),
+    description=data.get(
+      "description", source.description if source else None),
+    delivery_info=data.get(
+      "delivery_info", source.delivery_info if source else None),
     slug=slug,
-    variants=data.get("variants") if data.get("variants") is not None else _clone_variants(source),
-    pictures=data.get("pictures") if data.get("pictures") is not None else _clone_pictures(source),
+    variants=data.get("variants") if data.get(
+      "variants") is not None else _clone_variants(source),
+    pictures=data.get("pictures") if data.get(
+      "pictures") is not None else _clone_pictures(source),
   )
   product.status = "PENDING"
   product.updated_at = _now()
@@ -626,13 +656,17 @@ def get_best_discount(db: Session, product: Product, price: Decimal, coupon_code
     Discount.start_date <= now,
     Discount.end_date >= now,
     or_(
-      and_(Discount.target_type == "PRODUCT", Discount.target_id == product.id),
-      and_(Discount.target_type == "CATEGORY", Discount.target_id == version.category_id),
-      and_(Discount.target_type == "SELLER", Discount.target_id == product.seller_id),
+      and_(Discount.target_type == "PRODUCT",
+           Discount.target_id == product.id),
+      and_(Discount.target_type == "CATEGORY",
+           Discount.target_id == version.category_id),
+      and_(Discount.target_type == "SELLER",
+           Discount.target_id == product.seller_id),
     ),
   )
   if coupon_code:
-    query = query.filter(or_(Discount.discount_type != "COUPON", Discount.coupon_code == coupon_code))
+    query = query.filter(
+      or_(Discount.discount_type != "COUPON", Discount.coupon_code == coupon_code))
   else:
     query = query.filter(Discount.discount_type != "COUPON")
 
@@ -648,7 +682,8 @@ def get_best_discount(db: Session, product: Product, price: Decimal, coupon_code
 
 def get_variant_price(db: Session, product: Product, variant: ProductVariant, coupon_code: str | None = None):
   base_price = Decimal(variant.price)
-  discount, discount_amount = get_best_discount(db, product, base_price, coupon_code=coupon_code)
+  discount, discount_amount = get_best_discount(
+    db, product, base_price, coupon_code=coupon_code)
   return {
     "base_price": base_price,
     "discount_id": discount.id if discount else None,
@@ -666,7 +701,8 @@ def record_product_view(db: Session, product: Product, user_id: int | None = Non
     ).first()
     if not exists:
       product.unique_pageviews += 1
-  db.add(ProductView(product_id=product.id, user_id=user_id, viewer_key=viewer_key))
+  db.add(ProductView(product_id=product.id,
+         user_id=user_id, viewer_key=viewer_key))
   db.commit()
   db.refresh(product)
   return product
@@ -729,14 +765,44 @@ def recalculate_product_rating(db: Session, product_id: int):
   return product
 
 
-def get_product_reviews(db: Session, product_id: int, skip: int = 0, limit: int = 100):
-  return db.query(Review).join(ProductVariant).join(ProductVersion).filter(
-    ProductVersion.product_id == product_id,
-    Review.deleted_at == None,
-  ).order_by(Review.created_at.desc()).offset(skip).limit(limit).all()
+def get_product_reviews(
+  db: Session,
+  product_id: int,
+  skip: int = 0,
+  limit: int = 100,
+  min_rating: int | None = None,
+  max_rating: int | None = None,
+  sort_by: str = "created_at",
+  sort_dir: str = "desc",
+  with_count: bool = False,
+):
+  query = (
+    db.query(Review)
+    .join(ProductVariant)
+    .join(ProductVersion)
+    .filter(
+      ProductVersion.product_id == product_id,
+      Review.deleted_at == None,
+    )
+  )
+
+  if min_rating is not None:
+    query = query.filter(Review.rating >= min_rating)
+  if max_rating is not None:
+    query = query.filter(Review.rating <= max_rating)
+
+  direction = asc if sort_dir == "asc" else desc
+  order_col = Review.rating if sort_by == "rating" else Review.created_at
+  query = query.order_by(direction(order_col))
+
+  if with_count:
+    total = query.with_entities(func.count(Review.id)).scalar() or 0
+    return total, query.offset(skip).limit(limit).all()
+
+  return query.offset(skip).limit(limit).all()
 
 
-def create_review(db: Session, user_id: int, product_id: int, product_variant_id: int, rating: int, comment: str | None):
+def create_review(db: Session, user_id: int, product_id: int, product_variant_id: int, rating: int, comment: str | None, pictures: list | None = None):
   variant = get_product_variant_by_id(db, product_variant_id)
   if not variant or _product_id_for_variant(variant) != product_id:
     raise ValueError("Product variant not found")
@@ -752,6 +818,8 @@ def create_review(db: Session, user_id: int, product_id: int, product_variant_id
     comment=comment,
   )
   db.add(review)
+  db.flush()
+  _create_review_pictures(db, review.id, pictures or [])
   db.commit()
   db.refresh(review)
   recalculate_product_rating(db, product_id)
@@ -778,3 +846,10 @@ def delete_review(db: Session, review: Review, product_id: int):
   db.refresh(review)
   recalculate_product_rating(db, product_id)
   return review
+
+
+def get_review_by_id(db: Session, review_id: int):
+  return db.query(Review).filter(
+    Review.id == review_id,
+    Review.deleted_at == None,
+  ).first()

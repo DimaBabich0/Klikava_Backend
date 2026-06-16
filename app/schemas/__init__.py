@@ -34,6 +34,7 @@ from .discount import (
 from .feature import (
     FeatureCreate, FeatureUpdate, FeatureResponse,
 )
+from .review import ReviewCreate, ReviewUpdate, ReviewResponse
 
 __all__ = [
     "RoleBase", "RoleCreate", "RoleResponse", "AssignRoleRequest", "RoleUpdate",
@@ -52,4 +53,5 @@ __all__ = [
     "CategoryCreate", "CategoryUpdate", "CategoryResponse",
     "DiscountCreate", "DiscountUpdate", "DiscountResponse",
     "FeatureCreate", "FeatureUpdate", "FeatureResponse",
+    "ReviewCreate", "ReviewUpdate", "ReviewResponse",
 ]

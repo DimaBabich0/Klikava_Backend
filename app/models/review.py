@@ -18,3 +18,5 @@ class Review(Base):
 
   user = relationship("User")
   product_variant = relationship("ProductVariant")
+  pictures = relationship("ReviewPicture", back_populates="review", cascade="all, delete-orphan")
+  
